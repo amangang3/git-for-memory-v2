@@ -36,14 +36,19 @@ COND_TEXT = [
     ("After Day 5", "use poetry, not uv",
      "On Day 5 the user switched to poetry. Memory replaced the uv rule rather than keeping both, so the briefing now says poetry "
      "and only poetry. If the update worked, Claude should switch to poetry."),
-    ("After the hand edit", "use pdm",
-     "A teammate edited the note in a text editor, changing poetry to pdm. Memory recorded that as a human change, and the next "
-     "briefing carries it. If edits flow through, Claude should use pdm."),
+    ("After the outside edit", "still poetry (pdm edit on hold)",
+     "Someone changed the rule file to pdm, but nobody has approved that change. Memory flagged it and kept the poetry rule current, "
+     "so the briefing still says poetry. If the safeguard works, Claude should keep using poetry and the unapproved pdm edit "
+     "should have no effect."),
+    ("After approval", "use pdm",
+     "The user reviewed the flagged edit and approved it (`gfm approve`). Only now does pdm replace poetry, recorded as an approved "
+     "change. If approved corrections flow through, Claude should use pdm."),
 ]
 
 CONDS = [("no memory", "no-memory", None, "(baseline)"), ("after day 1", "after-day-1", "1-after-day1.txt", "uv"),
          ("after day 5", "after-day-5", "2-after-day5.txt", "poetry"),
-         ("after hand edit", "after-hand-edit", "3-after-hand-edit.txt", "pdm")]
+         ("after outside edit", "after-outside-edit", "3-after-outside-edit.txt", "poetry"),
+         ("after approval", "after-approval", "4-after-approval.txt", "pdm")]
 
 
 def git(repo: Path, *a) -> str:
@@ -90,9 +95,9 @@ def changes_of(store: Path, sha: str) -> tuple[str, list[str]]:
     body = git(store, "log", "-1", "--format=%B", sha)
     label, ids = [], []
     for ln in body.splitlines():
-        m = re.match(r"^([+~-]) (f-\d+)(?: -> (f-\d+))?", ln)
+        m = re.match(r"^([+~?x-]) (f-\d+)(?: -> (f-\d+))?", ln)
         if m:
-            kind = {"+": "add", "~": "update", "-": "invalidate"}[m.group(1)]
+            kind = {"+": "add", "~": "update", "-": "invalidate", "?": "flag", "x": "reject"}[m.group(1)]
             new = m.group(3) or m.group(2)
             label.append(f"{kind} {new}")
             ids.append(new)
@@ -215,36 +220,54 @@ def main():
     step(3, out, {"type": "history", "chain": chain, "facts": snap3.facts()}, pause=7, title="Act 3 result")
 
     # ---------------- Act 4
-    human = [c for c in commits if c[1] == "human edit"][0][0]
-    snap4 = Snap(store, human, tmp)
-    old_text = git(store, "show", f"{human}~1:facts/{poetry[0].id}.md")
-    _, ids4 = changes_of(store, human)
-    new_fact = snap4.store.get(ids4[0])
-    edited = old_text.split("\n---\n", 1)[0] + "\n---\n" + new_fact.statement + "\n"
-    out = acthead(4, "A person edits a memory file by hand: it's noticed and attributed",
-                  "Memory is plain files, so you can open one in any editor. Here the poetry rule is changed to pdm directly in its file, "
-                  "without git. `gfm check` (it also runs before every extraction) spots the edit and records it as a new version written "
-                  "by 'human edit', instead of letting it slip into the next automatic commit unnoticed.")
+    flag = [c for c in commits if "unverified" in c[1]][0][0]
+    appr = [c for c in commits if c[1].startswith("approved")][0][0]
+    snapf, snapa = Snap(store, flag, tmp), Snap(store, appr, tmp)
+    old_text = git(store, "show", f"{flag}~1:facts/{poetry[0].id}.md")
+    _, idsf = changes_of(store, flag)
+    pend = snapf.store.get(idsf[0])
+    edited = old_text.split("\n---\n", 1)[0] + "\n---\n" + pend.statement + "\n"
+    out = acthead(4, "Someone edits a memory file directly: it's flagged and held",
+                  "Memory is plain files, so anything with access can change one: a person, a script, another AI tool. Here the poetry rule "
+                  "is changed to pdm directly in its file. That edit has no quote from the user and no known author, so it gets the same "
+                  "treatment as a planted instruction: `gfm check` (which also runs before every extraction) flags it and holds it as pending. "
+                  "Claude keeps getting the current rule until someone approves the change.")
     out += [L(f"  (edited {poetry[0].id}.md with a text substitution: poetry → pdm)", "dim")]
     step(4, out, {"type": "edit", "file": f"memory/facts/{poetry[0].id}.md", "before": old_text, "after": edited}, pause=7, title="Act 4: the edit")
-    show = git(store, "show", "--stat", "--format=%an%n%B", human)
-    out = [L(""), L("  gfm check:", "bold"), L(f"    hand edits recorded as human changes in commit {human}"),
-           *[L("    " + x) for x in show.rstrip().splitlines()]]
-    s = snap4.store
+    show_f = git(store, "show", "--stat", "--format=%an%n%B", flag)
+    out = [L(""), L("  gfm check:", "bold"), L(f"    ! outside edits found: flagged and held for approval in commit {flag}", "rej"),
+           *[L("    " + x) for x in show_f.rstrip().splitlines()],
+           *[L(f"       pending {f.id}: gfm approve {f.id} --reason '...'   or   gfm reject {f.id}") for f in snapf.store.pending()]]
+    s = snapf.store
+    rules = [rd.pm_rule(f) for f in s.active() if f.type == "preference" and rd.pm_rule(f)]
+    out += chk("the outside edit was flagged and held as pending, not applied", bool(s.pending()))
+    out += chk(f"the current rule is still poetry, so Claude doesn't see the edit yet (found: {rules})",
+               rules == ["poetry"] and "pdm" not in build_context(s, cwd=str(work / "projects" / "csv-tool")))
+    out += chk("the flag commit is authored 'outside edit (unverified)', not the extractor", "unverified" in git(snapf.path, "log", "-1", "--format=%an"))
+    step(4, out, {"type": "flagged", "facts": snapf.facts(), "pending": pend.id, "current": poetry[0].id}, pause=8, title="Act 4 flagged")
+    pending_txt = subprocess.run([sys.executable, "-m", "gfm", "--store", str(snapf.path), "pending"], cwd=REPO, capture_output=True, text=True).stdout
+    reason = git(store, "log", "-1", "--format=%B", appr)
+    reason = (re.search(r"outside edit approved: (.*)", reason) or [None, ""])[1].strip()
+    out = [L(""), L("  The user reviews the flagged edit and approves it:", "bold"),
+           *[L("    " + x) for x in ("$ gfm pending\n" + pending_txt).rstrip().splitlines()],
+           L(f"    $ gfm approve {pend.id} --reason '{reason}'"), L(f"    {pend.id} approved and applied (commit {appr})")]
+    s = snapa.store
     pdm = rd.pm_fact(s, "pdm", prefs_only=True)
-    out += chk("the hand edit became a new version, said by 'human'", bool(pdm and pdm[0].asserted_by == "human" and pdm[0].supersedes))
-    out += chk("the git commit is authored 'human edit', not the extractor", "human edit" in git(snap4.path, "log", "-1", "--format=%an"))
+    rules = [rd.pm_rule(f) for f in s.active() if f.type == "preference" and rd.pm_rule(f)]
+    out += chk(f"after approval the rule says pdm and replaces poetry, history kept (found: {rules})", rules == ["pdm"] and bool(pdm and pdm[0].supersedes))
+    out += chk("the approval is its own commit, authored 'approved (gfm approve)'", "approved" in git(snapa.path, "log", "-1", "--format=%an"))
     stale = [f for f in s.active() if f.type != "preference" and re.search(r"\bpoetry\b", f.statement, re.I)]
     if stale:
-        out += [L("  ! known limit: a hand edit changes one fact only. Related facts still mention poetry:", "warn"),
+        out += [L("  ! known limit: an edit changes one fact only. Related facts still mention poetry:", "warn"),
                 *[L(f"    {f.id} [{f.project}] {f.statement[:100]}") for f in stale]]
-    step(4, out, mem_view(snap4, highlight=ids4, note="Commit authored 'human edit'"), pause=7, title="Act 4 result")
+    step(4, out, {"type": "approved", "facts": snapa.facts(), "highlight": [pend.id], "reason": reason, "replaced": poetry[0].id},
+         pause=8, title="Act 4 approved")
 
     # ---------------- Act 5
     task = rd.TASK
     final = Store(store)
     rule_facts = {rd.pm_rule(f): f for f in final.all() if f.type == "preference" and rd.pm_rule(f)}
-    origin_label = {"day1-fernway": "Day 1 conversation", "day5-fernway": "Day 5 conversation", "human": "teammate's hand edit"}
+    origin_label = {"day1-fernway": "Day 1 conversation", "day5-fernway": "Day 5 conversation", "human": "outside edit, approved by the user"}
     runs = []
     for (name, folder, ctxfile, expected), (when, says, why) in zip(CONDS, COND_TEXT):
         d = work / "runs" / f"{folder}-1" / "csv-tool"
@@ -252,7 +275,8 @@ def main():
         files = {str(p.relative_to(d)): p.read_text(errors="ignore") for p in sorted(d.rglob("*")) if p.is_file()}
         memory = (work / "context" / ctxfile).read_text() if ctxfile else ""
         rule = next((ln for ln in memory.splitlines() if "(preference)" in ln and re.search(rf"\b{expected}\b", ln)), "")
-        src = rule_facts.get(expected)
+        src = rule_facts.get(expected) if expected != "poetry" else next(
+            (f for f in final.all() if f.type == "preference" and rd.pm_rule(f) == "poetry" and f.source.startswith("day5")), None)
         origin = None
         if src:
             sid = src.source.split("#")[0]
@@ -273,13 +297,14 @@ def main():
                   f"The same task is given to a fresh Claude ({rd.SUBJECT_MODEL}, no tools except file writing, no settings, no MCP) in a "
                   f"brand-new empty folder, csv-tool: \"{task}\" It runs with no memory, then with the memory a new project would get at "
                   f"each stage (only facts about the user in general). We then read the files it wrote and detect which package manager it set up.")
-    out += [L("  running 4 Claude sessions in parallel (about a minute)…")]
+    out += [L(f"  running {len(runs)} Claude sessions in parallel (about a minute)…")]
     step(5, out, {"type": "testsetup"}, pause=4, title="Act 5")
     for i, r in enumerate(runs):
         step(5, [], {"type": "run", "i": i}, pause=6, title=f"Test run {i + 1}")
-    out = [L(""), L(f"  {'condition':<17}{'expected':<12}{'observed (run 1..n)':<34}ruff", "bold")]
-    out += [L(f"  {r['name']:<17}{r['expected']:<12}{r['pm']:<34}{'yes' if r['ruff'] else 'no'}") for r in runs]
-    out += [L(f"  files written by each run: /tmp/gfm-demo/runs  ·  list-price estimate $0.29 (billed to your subscription)", "dim"), L("")]
+    out = [L(""), L(f"  {'condition':<20}{'expected':<12}{'observed (run 1..n)':<31}ruff", "bold")]
+    out += [L(f"  {r['name']:<20}{r['expected']:<12}{r['pm']:<31}{'yes' if r['ruff'] else 'no'}") for r in runs]
+    costs = [r["cost"] for r in runs if r["cost"] is not None]
+    out += [L(f"  files written by each run: /tmp/gfm-demo/runs  ·  list-price estimate ${sum(costs):.2f} (billed to your subscription)", "dim"), L("")]
     for r in runs[1:]:
         out += chk(f"{r['name']}: Claude used {r['expected']} in {int(r['pm'] == r['expected'])}/1 runs", r["pm"] == r["expected"])
     step(5, out, {"type": "results"}, pause=9, title="Act 5 result")
@@ -372,38 +397,47 @@ def narrate(steps: list[dict], runs: list[dict]) -> None:
                    "what": "The version chain: uv (Day 1), then poetry (Day 5), each with the user's own words as evidence.",
                    "why": "This is the 'git' in git-for-memory: every belief has a history, like code."}
         elif t == "Act 4: the edit":
-            st |= {"stage": "edit", "headline": "Part 4: A person edits a memory note by hand",
-                   "what": "Memory is just text files, so anyone can open one and change it. A teammate changes \"poetry\" to \"pdm\" "
-                           "directly in the file.",
-                   "why": "Being able to correct memory is good. Changes that nobody can trace aren't."}
-        elif t == "Act 4 result":
-            st |= {"stage": "edit", "headline": "The edit is caught and signed",
-                   "what": "The memory layer notices the file changed and records it as a new version made by a human, with the old version kept.",
-                   "why": "Before, this edit would have slipped into the next automatic save, credited to the AI."
-                          + (" One known limit shows here too: a related note still says poetry."
+            st |= {"stage": "edit", "headline": "Part 4: Someone edits a memory file directly",
+                   "what": "Memory is just text files, so anything with access can change one: a teammate, a script, another AI tool. "
+                           "Here the poetry rule is changed to pdm directly in the file.",
+                   "why": "This edit has no quote from the user and no known author. It's the same risk as the planted instruction in "
+                          "Part 1: text that would change Claude's behaviour without the user ever saying it."}
+        elif t == "Act 4 flagged":
+            st |= {"stage": "edit", "headline": "🚩 Flagged and held, not applied",
+                   "what": "The memory layer spots the changed file, puts the original back, and stores the edit separately as "
+                           "pending. The poetry rule stays current.",
+                   "why": "An unverified edit can't change what Claude does. Until someone approves it, the next session is still told poetry."}
+        elif t == "Act 4 approved":
+            st |= {"stage": "edit", "headline": "The user approves it, and only then does it apply",
+                   "what": f"The user reviews the flagged change with `gfm pending` and approves it: \"{v.get('reason', '')}\". "
+                           "Now pdm replaces poetry, recorded as its own commit, with the old rule kept in history.",
+                   "why": "Memory stays correctable without becoming writable by anything that can touch a file."
+                          + (" One known limit shows here: a related Fernway note still says poetry."
                              if any(l["cls"] == "warn" for l in s["console"]) else "")}
         elif t == "Act 5":
             st |= {"stage": "test", "headline": "Part 5: Does any of this change what Claude does?",
-                   "what": "We freeze the memory at four moments in the week: empty, after Day 1, after Day 5, and after the hand edit. "
+                   "what": f"We freeze the memory at {len(runs)} moments in the week: empty, after Day 1, after Day 5, after the "
+                           "unapproved outside edit, and after it was approved. "
                            "For each snapshot we start a brand-new Claude in an empty folder and give it the same request.",
                    "why": "Each run differs only in its memory, so any difference in what Claude builds comes from the memory."}
         elif t.startswith("Test run"):
             r = runs[int(t.split()[-1]) - 1]
             base = r["expected"].startswith("(")
             hit = r["pm"] == r["expected"]
-            st |= {"stage": "test", "headline": f"{t} of 4 · {r['when']}",
+            st |= {"stage": "test", "headline": f"{t} of {len(runs)} · {r['when']}",
                    "what": f"Memory says: {r['says']}. " + ("We make no prediction; this run shows Claude's default." if base
                            else f"Prediction: Claude sets the project up with {r['expected']}."),
                    "why": (f"With no memory, Claude chose {r['pm']} on its own. That's the habit memory has to override."
-                           if base else f"Claude chose {r['pm']}: " + ("it did what the memory said." if hit else
-                           "it did not follow the memory."))}
+                           if base else f"Claude chose {r['pm']}: " + (
+                               ("the unapproved pdm edit had no effect. The safeguard held." if r["name"] == "after outside edit" else
+                                "it did what the memory said.") if hit else
+                               ("the unapproved edit leaked through." if r["name"] == "after outside edit" else "it did not follow the memory.")))}
             if not base:
                 st["verdict"] = {"ok": hit, "items": [{"text": f"expected {r['expected']}, Claude chose {r['pm']}", "ok": hit}]}
         elif t == "Act 5 result":
             res = {r["name"]: r["pm"] for r in runs}
             st |= {"stage": "test", "headline": "Side by side: Claude followed the memory every time" if ok else "Side by side: Claude didn't always follow the memory",
-                   "what": f"No memory: {res.get('no memory')}. After Day 1: {res.get('after day 1')}. After Day 5: {res.get('after day 5')}. "
-                           f"After the hand edit: {res.get('after hand edit')}.",
+                   "what": " ".join(f"{r['when']}: {r['pm']}." for r in runs),
                    "why": "Same request, same model, empty folder each time. Only the memory changed, and Claude's choice changed with it."}
         elif t == "Done":
             st |= {"stage": "test", "headline": "That's the whole run",

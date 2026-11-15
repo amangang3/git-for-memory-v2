@@ -196,7 +196,9 @@ def run_subject(folder: Path, memory: str) -> dict:
             break
         except (json.JSONDecodeError, AttributeError):
             continue
-    return {**score(folder), "cost": cost, "secs": round(time.time() - t0)}
+    result = {**score(folder), "cost": cost, "secs": round(time.time() - t0)}
+    (folder.parent / "result.json").write_text(json.dumps(result, indent=2))
+    return result
 
 
 # ---------------------------------------------------------------- the demo
@@ -289,10 +291,12 @@ def main():
 
     # ---- Act 4
     pause(args)
-    act(4, "A person edits a memory file by hand: it's noticed and attributed",
-        "Memory is plain files, so you can open one in any editor. Here the poetry rule is changed to pdm directly in its file, "
-        "without git. `gfm check` (it also runs before every extraction) spots the edit and records it as a new version written "
-        "by 'human edit', instead of letting it slip into the next automatic commit unnoticed.")
+    act(4, "Someone edits a memory file directly: it's flagged and held",
+        "Memory is plain files, so anything with access can change one: a person, a script, another AI tool. Here the poetry rule "
+        "is changed to pdm directly in its file. That edit has no quote from the user and no known author, so it gets the same "
+        "treatment as a planted instruction: `gfm check` (which also runs before every extraction) flags it and holds it as pending. "
+        "Claude keeps getting the current rule until someone approves the change.")
+    pdm = []
     if poetry:
         target = store / "facts" / f"{poetry[0].id}.md"
         before = target.read_text()
@@ -305,22 +309,41 @@ def main():
         print(f"\n  {BOLD}gfm check:{END}")
         show(gfm(store, "check"))
         s = Store(store)
+        held = [f for f in s.pending() if re.search(r"\bpdm\b", f.statement, re.I)]
+        rules = [pm_rule(f) for f in s.active() if f.type == "preference" and pm_rule(f)]
+        check("the outside edit was flagged and held as pending, not applied", bool(held))
+        check(f"the current rule is still poetry, so Claude doesn't see the edit yet (found: {rules})",
+              rules == ["poetry"] and "pdm" not in build_context(s, cwd=new))
+        check("the flag commit is authored 'outside edit (unverified)', not the extractor",
+              "unverified" in s._git("log", "-1", "--format=%an"))
+        (ctx / "3-after-outside-edit.txt").write_text(build_context(s, cwd=new))
+
+        pause(args, "press Enter to approve the edit")
+        print(f"\n  {BOLD}The user reviews the flagged edit and approves it:{END}")
+        show("$ gfm pending\n" + gfm(store, "pending"))
+        if held:
+            reason = "Confirmed with the user: switching Python projects to pdm"
+            show(f"$ gfm approve {held[0].id} --reason '{reason}'\n" + gfm(store, "approve", held[0].id, "--reason", reason))
+        s = Store(store)
         pdm = pm_fact(s, "pdm", prefs_only=True)
-        check("the hand edit became a new version, said by 'human'", bool(pdm and pdm[0].asserted_by == "human" and pdm[0].supersedes))
-        check("the git commit is authored 'human edit', not the extractor", "human edit" in s._git("log", "-1", "--format=%an"))
+        rules = [pm_rule(f) for f in s.active() if f.type == "preference" and pm_rule(f)]
+        check(f"after approval the rule says pdm and replaces poetry, history kept (found: {rules})",
+              rules == ["pdm"] and bool(pdm and pdm[0].supersedes))
+        check("the approval is its own commit, authored 'approved (gfm approve)'", "approved" in s._git("log", "-1", "--format=%an"))
         stale = [f for f in s.active() if f.type != "preference" and re.search(r"\bpoetry\b", f.statement, re.I)]
         if stale:
-            print(f"  {YELLOW}! known limit: a hand edit changes one fact only. Related facts still mention poetry:{END}")
+            print(f"  {YELLOW}! known limit: an edit changes one fact only. Related facts still mention poetry:{END}")
             show("\n".join(f"{f.id} [{f.project}] {f.statement[:100]}" for f in stale))
-    (ctx / "3-after-hand-edit.txt").write_text(build_context(s, cwd=new))
+    (ctx / "4-after-approval.txt").write_text(build_context(s, cwd=new))
 
     # ---- Act 5
     pause(args)
     conds = [("no memory", "", "(baseline)"), ("after day 1", (ctx / "1-after-day1.txt").read_text(), "uv"),
              ("after day 5", (ctx / "2-after-day5.txt").read_text(), "poetry"),
-             ("after hand edit", (ctx / "3-after-hand-edit.txt").read_text(), "pdm")]
+             ("after outside edit", (ctx / "3-after-outside-edit.txt").read_text() if (ctx / "3-after-outside-edit.txt").exists() else "", "poetry"),
+             ("after approval", (ctx / "4-after-approval.txt").read_text(), "pdm")]
     act(5, "Does memory change what Claude actually does?",
-        f"The same task is given to a fresh Claude ({SUBJECT_MODEL}, no tools except file writing, no settings, no MCP) in an "
+        f"The same task is given to a fresh Claude ({SUBJECT_MODEL}, no tools except file writing, no settings, no MCP) in a "
         f"brand-new empty folder, csv-tool: \"{TASK}\" It runs with no memory, then with the memory a new project "
         f"would get at each stage (only facts about the user in general). We then read the files it wrote and detect which package manager it set up.")
     if args.skip_claude:
@@ -328,20 +351,20 @@ def main():
     else:
         jobs = [(c, i) for c in conds for i in range(args.repeats)]
         print(f"  running {len(jobs)} Claude sessions in parallel (about a minute)…")
-        with cf.ThreadPoolExecutor(max_workers=4) as ex:
+        with cf.ThreadPoolExecutor(max_workers=5) as ex:
             futs = {ex.submit(run_subject, work / "runs" / f"{c[0].replace(' ', '-')}-{i + 1}" / "csv-tool", c[1]): (c, i)
                     for c, i in jobs}
             res = {}
             for fu in cf.as_completed(futs):
                 res[futs[fu]] = fu.result()
         total = 0.0
-        print(f"\n  {'condition':<17}{'expected':<12}{'observed (run 1..n)':<34}ruff")
+        print(f"\n  {'condition':<20}{'expected':<12}{'observed (run 1..n)':<31}ruff")
         for c in conds:
             rs = [res[(c, i)] for i in range(args.repeats)]
             total += sum(r["cost"] for r in rs)
             obs = ", ".join(r["pm"] for r in rs)
             ruff = ", ".join("yes" if r["ruff"] else "no" for r in rs)
-            print(f"  {c[0]:<17}{c[2]:<12}{obs:<34}{ruff}")
+            print(f"  {c[0]:<20}{c[2]:<12}{obs:<31}{ruff}")
         print(f"  {DIM}files written by each run: {work / 'runs'}  ·  list-price estimate ${total:.2f} (billed to your subscription){END}\n")
         for c in conds[1:]:
             rs = [res[(c, i)] for i in range(args.repeats)]

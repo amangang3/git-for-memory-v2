@@ -113,3 +113,10 @@ Built at the user's request ("build a demo now with these improvements"). This c
 - `demo/export_replay.py` rebuilds a finished demo workspace (`/tmp/gfm-demo`) into `docs/index.html` without calling any model. Console lines use the same format as `run_demo.py`, and the checks are recomputed with the same code (15/15, matching the live run). It refuses to write the page if a home-folder path appears in it.
 - Published (page only, public): https://amangang3.github.io/gfm-demo-replay/ (repo `amangang3/gfm-demo-replay`). The v2 code stays local.
 - Update after a new run: `python3 demo/run_demo.py && python3 demo/export_replay.py`, copy `docs/index.html` into the page repo, then push.
+
+## Outside edits are flagged, not trusted (2026-11-15)
+
+User question: "shouldn't the human edit show up as a red flag?" Yes. The first version recorded a direct file edit as a trusted `human` change (confidence 1.0) and briefed Claude with it right away. That's the same hole as the prompt injection in Part 1: text that changes Claude's behaviour without the user saying it, from an unknown author. Decision (user): **hold until approved**.
+- `absorb_hand_edits` restores the committed version and stores the edit as a `pending` fact (author `outside edit (unverified)`). New commands: `pending`, `approve`, `reject`.
+- Demo Act 4 = edit → flagged and held → approved. Act 5 now has 5 runs. New run: **19/19**: none → pip, Day 1 → uv, Day 5 → poetry, **unapproved edit → poetry (edit had no effect)**, after approval → pdm. ~$0.33 list price.
+- Tests: 22/22. Open item: pending edits aren't surfaced to the user at session start yet.

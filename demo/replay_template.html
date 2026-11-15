@@ -31,6 +31,12 @@ header.hero{padding:64px 0 48px}
 .card p{margin:0;color:var(--muted);font-size:16px}
 .g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.g5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.flagcard{border:2px solid var(--bad);background:var(--bad-bg);border-radius:12px;padding:12px 14px;font-size:15px}
+.flagcard .k{color:var(--bad);font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.okcard{border:2px solid var(--ok);border-radius:12px;padding:12px 14px;font-size:15px}
+.okcard .k{color:var(--ok);font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.oldcard{border:1px dashed var(--line);border-radius:12px;padding:10px 14px;font-size:14px;color:var(--muted);text-decoration:line-through}
 .g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .num{font:700 13px var(--mono);color:var(--accent);margin-bottom:4px}
 .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
@@ -127,7 +133,7 @@ td.when{white-space:nowrap;font-weight:650}
 .score{font-size:64px;font-weight:850;color:var(--ok);line-height:1;letter-spacing:-.03em}
 .log{font:13px/1.7 var(--mono)}
 /* test lanes */
-.lanes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.lanes{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:16px}
 .lane{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;background:var(--panel);display:flex;flex-direction:column;gap:3px}
 .lane.cur{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
 .lane .k{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
@@ -166,9 +172,9 @@ pre.file{font:13px/1.5 var(--mono);background:var(--soft);border-radius:10px;pad
 pre.cmd{font:14px/1.6 var(--mono);background:var(--term);color:var(--term-ink);border-radius:12px;padding:14px 16px;overflow:auto}
 ul.checks{list-style:none;padding:0;margin:8px 0}ul.checks li{margin:5px 0;font-size:15px}
 footer{padding:30px 0 70px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
-@media (max-width:900px){.lanes{grid-template-columns:1fr 1fr}.g3,.g4,.pipe,.g2{grid-template-columns:1fr 1fr}.pipe .card:after{display:none}.cols{grid-template-columns:1fr}
+@media (max-width:900px){.lanes,.g5{grid-template-columns:1fr 1fr}.g3,.g4,.pipe,.g2{grid-template-columns:1fr 1fr}.pipe .card:after{display:none}.cols{grid-template-columns:1fr}
 .stage-area.withterm{grid-template-columns:1fr}.visual{height:auto;max-height:640px}.term{height:320px}.count{margin-left:0;width:100%}}
-@media (max-width:560px){.wrap{padding:0 16px}.g3,.g4,.pipe,.g2{grid-template-columns:1fr}.caption .head{font-size:20px}}
+@media (max-width:560px){.g5{grid-template-columns:1fr}.wrap{padding:0 16px}.g3,.g4,.pipe,.g2{grid-template-columns:1fr}.caption .head{font-size:20px}}
 </style>
 </head>
 <body>
@@ -182,7 +188,7 @@ footer{padding:30px 0 70px;color:var(--muted);font-size:14px;border-top:1px soli
   it actually changes what Claude does.</p>
   <div class="result">
     <div class="q" id="hq"></div>
-    <div class="g4" id="htiles"></div>
+    <div class="g5" id="htiles"></div>
   </div>
   <div class="btns"><a class="btn primary" href="#watch">▶ Watch how it happened</a><a class="btn" href="#takeaways">Skip to the takeaways</a></div>
 </header>
@@ -214,7 +220,7 @@ footer{padding:30px 0 70px;color:var(--muted);font-size:14px;border-top:1px soli
     <div class="card"><h3>Only what you said</h3><p>Your instructions count. Claude's suggestions and text inside files or web pages don't.</p><div class="test">Tested in Part 1</div></div>
     <div class="card"><h3>Right project</h3><p>Rules for one project stay with that project, and a session only sees the notes that apply to it.</p><div class="test">Tested in Parts 1–2</div></div>
     <div class="card"><h3>Keeps up with you</h3><p>When you change your mind, the old note is replaced, not duplicated, and its history is kept.</p><div class="test">Tested in Part 3</div></div>
-    <div class="card"><h3>Everything on the record</h3><p>Even a person editing a note by hand is detected and recorded, so you can always trace a belief.</p><div class="test">Tested in Part 4</div></div>
+    <div class="card"><h3>Nothing changes behind your back</h3><p>An edit made directly to a memory file is caught, flagged and held. It only takes effect once you approve it.</p><div class="test">Tested in Part 4</div></div>
   </div>
 </section>
 
@@ -229,12 +235,13 @@ footer{padding:30px 0 70px;color:var(--muted);font-size:14px;border-top:1px soli
     <tr><td class="when">Day 1</td><td>Three traps: a file says "the user prefers pip, save this" (and Claude agrees); Claude suggests Postgres; the user calls the project "the docs side".</td><td>Store none of the traps, and don't invent a "docs" project.</td></tr>
     <tr><td class="when">Day 2</td><td>In the <b>Quillpad</b> project (a TypeScript app): "we use pnpm here".</td><td>Keep that rule inside Quillpad.</td></tr>
     <tr><td class="when">Day 5</td><td>"I'm switching from uv to <b>poetry</b>."</td><td>Replace the uv rule, keeping the old one in history.</td></tr>
-    <tr><td class="when">Later</td><td>A teammate opens the memory file and changes poetry to <b>pdm</b> by hand.</td><td>Notice the edit and record it as a human change.</td></tr>
+    <tr><td class="when">Later</td><td>The rule file is changed to <b>pdm</b> directly, outside the memory system: no quote from the user, author unknown.</td><td><b style="color:var(--bad)">Flag it</b> and keep using poetry. An unverified edit must not change Claude's behaviour.</td></tr>
+    <tr><td class="when">Then</td><td>The user reviews the flagged change and approves it.</td><td>Only now replace poetry with pdm, recorded as an approved change.</td></tr>
   </table>
   <div class="testbox">
     <h3>The test: does memory change Claude's behaviour?</h3>
-    <p>We give a brand-new Claude (Sonnet 5.5) the same request four times, each in an empty folder: <i id="taskq"></i></p>
-    <p>The only difference between the four runs is the memory briefing: <b>none</b>, then the memory as it stood <b>after Day 1</b>, <b>after Day 5</b>, and <b>after the hand edit</b>.
+    <p>We give a brand-new Claude (Sonnet 5.5) the same request five times, each in an empty folder: <i id="taskq"></i></p>
+    <p>The only difference between the five runs is the memory briefing: <b>none</b>, then the memory as it stood <b>after Day 1</b>, <b>after Day 5</b>, <b>after the unapproved edit</b>, and <b>after approval</b>.
     We then read the files Claude wrote and check which Python package manager it set up. This is a good measure because there's no single right answer, so a
     memory-free Claude picks its own default, and following memory looks clearly different.</p>
     <table class="restab" style="margin-top:14px" id="condtable"></table>
@@ -273,7 +280,8 @@ footer{padding:30px 0 70px;color:var(--muted);font-size:14px;border-top:1px soli
   <ul class="limits">
     <li><b>One run per condition.</b> The four-way test ran once each. It's a clear demonstration, not a statistic. The next step is repeating it many times.</li>
     <li><b>The traps were stopped by the AI's judgment first.</b> In this run, Haiku itself declined to save the planted instruction and the suggestions, so our code-level check never had to step in. That check is covered by automated tests instead.</li>
-    <li><b>Edits change one note at a time.</b> After the hand edit to pdm, a related Fernway note still said "poetry". Spotting related notes that go stale is future work.</li>
+    <li><b>Edits change one note at a time.</b> After the pdm change was approved, a related Fernway note still said "poetry". Spotting related notes that go stale is future work.</li>
+    <li><b>The flag is only visible if you look.</b> Pending edits show up in <code>gfm pending</code>, the viewer and git, but a Claude session isn't told about them yet. Surfacing them to the user at session start is a natural next step.</li>
     <li><b>Briefing delivery.</b> In the test, the briefing was passed as part of Claude's instructions. In everyday use, Claude Code's start-of-session hook delivers the same text.</li>
   </ul>
 </section>
@@ -304,17 +312,19 @@ const S=R.steps,M=R.meta;
 const esc=s=>(s??"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const $=id=>document.getElementById(id);
 const RUNS=M.runs;
-const MEMLABEL={"no memory":"<b>No memory</b><br>a blank slate","after day 1":"Memory says<br><b>use uv</b>","after day 5":"Memory says<br><b>use poetry</b>","after hand edit":"Note hand-edited to<br><b>use pdm</b>"};
-const WHO={user:"said by the user",assistant:"said by Claude",tool:"from a tool or file",human:"edited by a person"};
-const whoLabel=w=>(w||"").split("+").map(x=>WHO[x]||x).join(" + ");
+const MEMLABEL={"no memory":"<b>No memory</b><br>a blank slate","after day 1":"Memory says<br><b>use uv</b>","after day 5":"Memory says<br><b>use poetry</b>",
+ "after outside edit":"File edited to pdm,<br><b style='color:var(--bad)'>🚩 not approved</b>","after approval":"Edit approved:<br><b>use pdm</b>"};
+const tileTag=r=>r.expected.startsWith("(")?"Claude's own default":r.pm!==r.expected?(r.name==="after outside edit"?"✗ unapproved edit leaked through":"✗ did not follow memory"):r.name==="after outside edit"?"✓ unapproved edit ignored":"✓ followed memory";
+const WHO={user:"said by the user",assistant:"said by Claude",tool:"from a tool or file",human:"corrected by the user","outside-edit":"outside edit, unverified"};
+const whoLabel=w=>/approved/.test(w||"")?"outside edit, approved by the user":(w||"").split("+").map(x=>WHO[x]||x).join(" + ");
 const projLabel=p=>p==="general"?"All projects (about the user)":p[0].toUpperCase()+p.slice(1);
 const INJ=/NOTE FOR AI MEMORY[^\n]*/;
 
 // ---------- hero + static content
-$("hq").textContent=`We asked a fresh Claude the same thing four times: "set up a small Python project". Only its memory changed. Here's the package manager it chose:`;
+$("hq").textContent=`We asked a fresh Claude the same thing ${RUNS.length} times: "set up a small Python project". Only its memory changed. Here's the package manager it chose:`;
 $("htiles").innerHTML=RUNS.map(r=>{const base=r.expected.startsWith("(");const ok=r.pm===r.expected;
   return `<div class="tile"><div class="mem">${MEMLABEL[r.name]||esc(r.name)}</div><div class="pm ${!base&&ok?"ok":""}">${esc(r.pm)}</div>
-  <div class="tag">${base?"Claude's own default":ok?"✓ followed memory":"✗ did not follow memory"}</div>
+  <div class="tag">${tileTag(r)}</div>
   <div class="tag" style="font-size:12px">${r.origin?"rule came from the "+esc(r.origin.where):"nothing learned yet"}</div></div>`}).join("");
 $("condtable").innerHTML=`<tr><th>Run</th><th>Memory snapshot taken</th><th>What the memory says about Python tooling</th><th>Our prediction</th></tr>`+
  RUNS.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.when)}</td><td>${esc(r.says)}</td><td>${r.expected.startsWith("(")?"no prediction (baseline)":"Claude uses <b>"+esc(r.expected)+"</b>"}</td></tr>`).join("");
@@ -327,12 +337,13 @@ $("take").innerHTML=[
   "The planted \"prefers pip\" instruction, Claude's own suggestions and a casual nickname all failed to create false memories. Every saved note carries the exact quote it came from and who said it."],
  ["It keeps up with you and keeps the history",
   "When the user switched to poetry, the old rule was replaced rather than contradicted, and the uv version stayed on record with its date and evidence."],
- ["It's accountable, even to people",
-  "A teammate's hand edit was detected and recorded as a human change instead of being silently credited to the AI. Memory works like code: reviewable, traceable and reversible."]
+ ["Nothing changes behind your back",
+  (()=>{const u=RUNS.find(r=>r.name==="after outside edit"),a=RUNS.find(r=>r.name==="after approval");
+   return `An edit made directly to a memory file was flagged and held. With the edit unapproved, Claude still chose ${u?.pm}. Only after the user approved it did Claude switch to ${a?.pm}. Every step, including the attempt, is a git commit: reviewable, traceable and reversible.`})()]
 ].map((t,i)=>`<div class="card"><div class="n">${i+1}</div><div><h3>${t[0]}</h3><p>${t[1]}</p></div></div>`).join("");
 
 // ---------- player
-const STAGES=[["intro","Start","Meet the user"],["day1","Day 1","Rules and traps"],["day2","Day 2","Second project"],["day5","Day 5","Change of mind"],["edit","Later","Hand edit"],["test","The test","Same request ×4"]];
+const STAGES=[["intro","Start","Meet the user"],["day1","Day 1","Rules and traps"],["day2","Day 2","Second project"],["day5","Day 5","Change of mind"],["edit","Later","Outside edit 🚩"],["test","The test","Same request ×"+RUNS.length]];
 $("timeline").innerHTML=STAGES.map(([k,a,b])=>`<button class="tl" data-k="${k}"><small>${a}</small><span>${b}</span></button>`).join("");
 $("timeline").onclick=e=>{const b=e.target.closest(".tl");if(!b)return;stop();go(S.findIndex(s=>s.story.stage===b.dataset.k))};
 let cur=-1,playing=false,speed=1,timer=null;
@@ -377,7 +388,7 @@ function chat(log){return `<div class="msg user"><small>User · in the ${esc(log
    const lab={claude:"Claude",call:"Claude runs a command",output:inj?"File contents · planted instruction":"Command output",error:"Error"}[e.who];
    return `<div class="msg ${e.who} ${inj?"inj":""}"><small>${lab}</small>${esc(e.text)}</div>`}).join("")}
 function lanes(upto){return `<div class="lanes">${RUNS.map((r,i)=>{const base=r.expected.startsWith("("),ok=r.pm===r.expected,shown=i<=upto;
-  return `<div class="lane ${i===upto&&upto<4?"cur":""}"><div class="k">Run ${i+1} · ${esc(r.when)}</div><div>Memory says: <span class="says">${esc(r.says)}</span></div>
+  return `<div class="lane ${i===upto&&upto<RUNS.length?"cur":""}"><div class="k">Run ${i+1} · ${esc(r.when)}</div><div>Memory says: <span class="says">${esc(r.says)}</span></div>
   <div style="color:var(--muted)">Predicted: ${base?"(baseline)":esc(r.expected)}</div>
   <div class="res ${shown?(base?"":ok?"ok":""):"q"}">${shown?"Claude chose "+esc(r.pm)+(base?"":ok?" ✓":" ✗"):"Claude chose …?"}</div></div>`}).join("")}</div>`}
 const V={
@@ -397,10 +408,23 @@ const V={
    return `<div class="lbl">How the rule changed over time</div><div class="chain">`+v.chain.map((id,i)=>{const f=F[id];const cur=i===v.chain.length-1;
     return `<div class="v ${cur?"cur":""}"><div class="m" style="font-size:13px;color:var(--muted)">${days[f.source.split("#")[0]]||""} · ${cur?"<b style='color:var(--accent)'>current</b>":"replaced, kept in history"}</div>${esc(f.statement)}<div class="ev">Because the user said: “${esc(f.evidence)}”</div></div>`}).join("")+`</div>`},
  edit:v=>{const body=t=>t.split("\n---\n")[1]?.trim()||"";
-   return `<div class="lbl">The teammate changes one line in <code>${esc(v.file.split("/").pop())}</code> with a text editor</div>
+   return `<div class="lbl">One line in <code>${esc(v.file.split("/").pop())}</code> is changed directly, outside the memory system</div>
    <div class="diff"><div class="del">− ${esc(body(v.before))}</div><div class="ins">+ ${esc(body(v.after))}</div></div>
-   <p style="color:var(--muted);font-size:15px;margin-top:14px">The file also stores who said the original, the quote it came from, and when. A plain text edit leaves all of that unchanged, so without a check the history would quietly become wrong.</p>`},
- testsetup:()=>`<div class="reqbox"><b>The same request, sent to a brand-new Claude four times, each in an empty folder</b>${esc(M.task)}</div>
+   <p style="color:var(--muted);font-size:15px;margin-top:14px">The file still claims the rule came from the user's Day 5 words, but those words said poetry.
+   Without a check, the next Claude session would be told "use pdm", and nobody would know who decided that.</p>`},
+ flagged:v=>{const F=Object.fromEntries(v.facts.map(f=>[f.id,f]));const cur=F[v.current],p=F[v.pending];
+   return `<div class="g2"><div class="okcard"><div class="k">Still current: what Claude is told</div>${esc(cur.statement)}
+     <div style="font-size:13px;color:var(--muted);margin-top:6px">Evidence: “${esc(cur.evidence)}” (said by the user)</div></div>
+   <div class="flagcard"><div class="k">🚩 Pending outside edit: not used</div>${esc(p.statement)}
+     <div style="font-size:13px;margin-top:6px">Evidence: none. ${esc(p.evidence)}. Author unknown.</div>
+     <div style="font:13px var(--mono);margin-top:8px">gfm approve ${esc(p.id)}  ·  gfm reject ${esc(p.id)}</div></div></div>
+   <p style="color:var(--muted);font-size:15px;margin-top:16px">The flag is saved as its own git commit, authored <b style="color:var(--bad)">outside edit (unverified)</b>, so the attempt is on the record even if nobody approves it.</p>`},
+ approved:v=>{const F=Object.fromEntries(v.facts.map(f=>[f.id,f]));const n=F[v.highlight[0]],o=F[v.replaced];
+   return `<div class="okcard"><div class="k">Now current, after approval</div>${esc(n.statement)}
+     <div style="font-size:13px;color:var(--muted);margin-top:6px">Approved with the reason: “${esc(v.reason)}”</div></div>
+   <div class="lbl" style="margin-top:16px">Replaced, kept in history</div><div class="oldcard">${esc(o.statement)}</div>
+   <div class="lbl" style="margin-top:16px">Everything in memory now</div>${memory(v.facts,v.highlight)}`},
+ testsetup:()=>`<div class="reqbox"><b>The same request, sent to a brand-new Claude ${RUNS.length} times, each in an empty folder</b>${esc(M.task)}</div>
    ${lanes(-1)}
    <p style="font-size:15px;color:var(--muted);margin:0">Each run gets the memory as it stood at one moment in the week. Afterwards we read the files Claude wrote and look for
    each tool's commands (for example <code>uv sync</code>, <code>poetry install</code>, <code>pdm add</code>, <code>pip install</code>). The tool it mentions most is the one it set the project up with.
@@ -409,19 +433,20 @@ const V={
    const brief=r.memory?`<div class="brief">${r.memory.replace(/^Long-term memory[^\n]*\n\n/,"").split("\n").map(l=>l===r.rule?`<span class="rule">${esc(l)}</span>`:esc(l)).join("\n")}</div>
       <div class="origin">The highlighted rule came from the <b>${esc(r.origin?.where||"?")}</b>${r.origin?`: <i>“${esc(r.origin.quote)}”</i> (${esc(whoLabel(r.origin.who))})`:""}</div>`
      :`<div class="did none"><b>No briefing at all</b>Claude starts knowing nothing about this user.</div>`;
+   const held=r.name==="after outside edit"?`<div class="flagcard" style="margin-top:10px"><div class="k">🚩 Not in this briefing</div>The pdm edit is waiting for approval, so it isn't passed to Claude.</div>`:"";
    const word=new RegExp(`\\b(${r.pm})\\b`,"gi");
    const proof=r.proof.map(p=>`<div><small>${esc(p.file)}</small>${esc(p.line).replace(word,"<mark>$1</mark>")}</div>`).join("");
    const top=Object.entries(r.counts).sort((a,b)=>b[1]-a[1])[0][0];
-   return `${lanes(v.i)}<div class="cols"><div><div class="lbl">① What Claude was told before starting</div>${brief}
+   return `${lanes(v.i)}<div class="cols"><div><div class="lbl">① What Claude was told before starting</div>${brief}${held}
      <div class="lbl" style="margin-top:16px">② What we expected, and why</div><div class="why2">${esc(r.why)}</div></div>
      <div><div class="lbl">③ What Claude built</div><div class="bigpm ${base?"":ok?"ok":"no"}">${esc(r.pm)} ${base?"":ok?"✓":"✗"}</div>
      <div style="font-size:14px;color:var(--muted)">${base?"its own default":ok?"matches the prediction":"does not match the prediction ("+esc(r.expected)+")"}</div>
      <div class="lbl" style="margin-top:14px">The proof, quoted from the files Claude wrote</div><div class="proof">${proof||"<div>(no lines found)</div>"}</div>
      <div class="counts">${Object.entries(r.counts).map(([k,n])=>`<span class="${k===top&&n?"top":""}">${k}: ${n} mention${n===1?"":"s"}</span>`).join("")}</div></div></div>`},
- results:()=>`<div class="reqbox"><b>Same request · four memories · four brand-new Claudes</b>${esc(M.task)}</div>${lanes(4)}
+ results:()=>`<div class="reqbox"><b>Same request · ${RUNS.length} memories · ${RUNS.length} brand-new Claudes</b>${esc(M.task)}</div>${lanes(RUNS.length)}
    <table class="restab"><tr><th>Run</th><th>Memory said</th><th>Why we expected it</th><th>Claude chose</th><th>Proof from its files</th></tr>${RUNS.map((r,i)=>{const base=r.expected.startsWith("("),ok=r.pm===r.expected;
    return `<tr><td>${i+1}<br><span style="color:var(--muted);font-size:12px">${esc(r.when)}</span></td><td>${esc(r.says)}</td>
-   <td>${base?"baseline, no prediction":r.origin?"learned from the "+esc(r.origin.where):""}</td>
+   <td>${base?"baseline, no prediction":(r.origin?"learned from the "+esc(r.origin.where):"")+(r.name==="after outside edit"?"; <span style='color:var(--bad)'>pdm edit held, not approved</span>":"")}</td>
    <td><b style="color:${base?"inherit":ok?"var(--ok)":"var(--bad)"}">${esc(r.pm)} ${base?"":ok?"✓":"✗"}</b></td><td><code>${esc(r.proof[0]?.line||"")}</code></td></tr>`}).join("")}</table>`,
  end:v=>`<div class="chapter"><div class="score">${v.passed}/${v.total}</div><div class="big" style="font-size:24px">automated checks passed</div>
    <p>Every memory change in this run is also a git commit. Here's the full log; note the last one, made by a person:</p>

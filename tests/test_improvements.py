@@ -93,35 +93,58 @@ class InjectTests(unittest.TestCase):
             self.assertNotIn(tmp, text)
 
 
-class HandEditTests(unittest.TestCase):
-    def test_hand_edit_becomes_attributed_version(self):   # P7
+class OutsideEditTests(unittest.TestCase):
+    def edit(self, s, old, new):
+        p = s.facts_dir / "f-0001.md"
+        p.write_text(p.read_text().replace(old, new))
+
+    def test_outside_edit_is_held_not_applied(self):   # P7, and "shouldn't a hand edit be a red flag?"
         with tempfile.TemporaryDirectory() as tmp:
-            s = seeded(tmp, [("fernway", "preference", "Package manager", "Use uv.")])
-            p = s.facts_dir / "f-0001.md"
-            p.write_text(p.read_text().replace("Use uv.", "Use pdm."))
-            sha = s.absorb_hand_edits()
-            self.assertTrue(sha)
-            old, new = s.get("f-0001"), s.get("f-0002")
-            self.assertEqual(old.statement, "Use uv.")
-            self.assertEqual(old.status, "superseded")
-            self.assertEqual((new.statement, new.asserted_by, new.supersedes), ("Use pdm.", "human", "f-0001"))
-            self.assertIn("human edit", s._git("log", "-1", "--format=%an"))
+            s = seeded(tmp, [("general", "preference", "Package manager", "Use uv.")])
+            self.edit(s, "Use uv.", "Use pdm.")
+            self.assertTrue(s.absorb_hand_edits())
+            cur, pend = s.get("f-0001"), s.get("f-0002")
+            self.assertEqual((cur.status, cur.statement), ("active", "Use uv."))       # Claude still gets uv
+            self.assertEqual((pend.status, pend.statement, pend.supersedes), ("pending", "Use pdm.", "f-0001"))
+            self.assertNotIn("pdm", build_context(s, project="general"))
+            self.assertIn("unverified", s._git("log", "-1", "--format=%an"))
             self.assertEqual(s.dirty(), [])
+
+    def test_approve_applies_the_edit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            s = seeded(tmp, [("general", "preference", "Package manager", "Use uv.")])
+            self.edit(s, "Use uv.", "Use pdm.")
+            s.absorb_hand_edits()
+            s.approve("f-0002", "confirmed with the user")
+            self.assertEqual(s.get("f-0001").status, "superseded")
+            self.assertEqual(s.get("f-0002").status, "active")
+            self.assertIn("pdm", build_context(s, project="general"))
+            self.assertIn("approved", s._git("log", "-1", "--format=%an"))
+
+    def test_reject_discards_the_edit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            s = seeded(tmp, [("general", "preference", "Package manager", "Use uv.")])
+            self.edit(s, "Use uv.", "Use pdm.")
+            s.absorb_hand_edits()
+            s.reject("f-0002")
+            self.assertEqual(s.get("f-0002").status, "rejected")
+            self.assertEqual([f.statement for f in s.active()], ["Use uv."])
 
     def test_extractor_commit_does_not_sweep_hand_edits(self):
         with tempfile.TemporaryDirectory() as tmp:
             s = seeded(tmp, [("fernway", "preference", "A", "one")])
-            (s.facts_dir / "f-0001.md").write_text((s.facts_dir / "f-0001.md").read_text().replace("one", "edited"))
+            self.edit(s, "one", "edited")
             ch = s.apply([{"op": "ADD", "subject": "B", "statement": "two", "project": "fernway"}], "s#L1", "")
             s.commit(ch, "s#L1", "session s turn 1")
             self.assertEqual(s.dirty(), [(" M", "facts/f-0001.md")])
 
-    def test_deleted_file_is_restored_and_invalidated(self):
+    def test_deleted_file_is_restored_and_flagged(self):
         with tempfile.TemporaryDirectory() as tmp:
             s = seeded(tmp, [("fernway", "preference", "A", "one")])
             (s.facts_dir / "f-0001.md").unlink()
             s.absorb_hand_edits()
-            self.assertEqual(s.get("f-0001").status, "invalidated")
+            self.assertEqual(s.get("f-0001").status, "active")
+            self.assertIn("deleted outside gfm", s._git("log", "-1", "--format=%B"))
 
 
 if __name__ == "__main__":

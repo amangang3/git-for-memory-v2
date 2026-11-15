@@ -14,7 +14,7 @@ from .redact import redact
 from .store import Store
 from .traces import find_log, hide_folder
 
-_OP_LINE = re.compile(r"^([+~-]) (f-\d+)(?: -> (f-\d+))? \[")
+_OP_LINE = re.compile(r"^([+~?x-]) (f-\d+)(?: -> (f-\d+))? \[")
 
 
 def _commits(store: Store) -> list[dict]:
@@ -33,7 +33,7 @@ def _commits(store: Store) -> list[dict]:
         for ln in lines[1:]:
             om = _OP_LINE.match(ln)
             if om:
-                kind = {"+": "added", "~": "updated", "-": "invalidated"}[om.group(1)]
+                kind = {"+": "added", "~": "updated", "-": "invalidated", "?": "pending", "x": "rejected"}[om.group(1)]
                 last = {"kind": kind, "id": om.group(3) or om.group(2), "old": om.group(2) if om.group(3) else None, "why": ""}
                 changes.append(last)
             elif ln.strip().startswith("why:") and last:
@@ -78,7 +78,7 @@ def build(store: Store, out: Path) -> Path:
         sid, _, line = c["source"].partition("#L")
         info = _session_info(sid, cache, known)
         if sid == "human":
-            info = {"title": "Changes made by a person", "lines": {}, "cwd": ""}
+            info = {"title": "Changes made outside sessions (outside edits, approvals)", "lines": {}, "cwd": ""}
         prompt = info["lines"].get(int(line or 0), "")
         prompt = redact(hide_folder(prompt, info["cwd"])).strip()
         first = facts.get(c["changes"][0]["id"]) if c["changes"] else None
@@ -101,7 +101,7 @@ def build(store: Store, out: Path) -> Path:
             "id": f.id, "subject": f.subject, "statement": f.statement, "type": f.type, "scope": f.scope,
             "project": f.project, "status": f.status, "confidence": f.confidence, "supersedes": f.supersedes,
             "superseded_by": f.superseded_by, "valid_from": f.valid_from, "evidence": f.evidence,
-            "session": sid[:8], "title": "a person (hand edit)" if sid == "human" else info["title"] or f"Session {sid[:8]}",
+            "session": sid[:8], "title": "an outside edit or approval" if sid == "human" else info["title"] or f"Session {sid[:8]}",
             "asserted_by": f.asserted_by,
         })
 
@@ -142,6 +142,8 @@ input{flex:1;min-width:180px}
 .badge{display:inline-block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:1px 7px;border-radius:5px;margin-right:6px}
 .added .badge,.badge.added{background:var(--add-bg);color:var(--add)}.updated .badge,.badge.updated{background:var(--upd-bg);color:var(--upd)}
 .invalidated .badge,.badge.invalidated{background:var(--inv-bg);color:var(--inv)}
+.change.pending,.change.rejected{border-color:var(--inv)}.pending .badge,.rejected .badge{background:var(--inv);color:#fff}
+.flag{background:var(--inv-bg);color:var(--inv);border:1px solid var(--inv);border-radius:10px;padding:10px 14px;margin-bottom:14px}
 .subj{font-weight:600}.old{color:var(--muted);text-decoration:line-through;font-size:14px;margin-top:4px}
 .why{color:var(--muted);font-size:13px;margin-top:3px}.why:before{content:"Why: ";font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
@@ -180,7 +182,7 @@ let tab="timeline";
 const projects=[...new Set(D.facts.map(f=>f.project))].sort();
 projects.forEach(p=>fp.insertAdjacentHTML("beforeend",`<option>${esc(p)}</option>`));
 const active=D.facts.filter(f=>f.status==="active");
-const counts={added:0,updated:0,invalidated:0};D.turns.forEach(t=>t.changes.forEach(c=>counts[c.kind]++));
+const counts={added:0,updated:0,invalidated:0,pending:0,rejected:0};D.turns.forEach(t=>t.changes.forEach(c=>counts[c.kind]++));
 stats.innerHTML=[[active.length,"facts in memory now"],[D.facts.length,"versions kept"],[D.turns.length,"turns that changed memory"],[counts.updated,"updates to existing facts"],[projects.length,"projects"]]
  .map(([n,l])=>`<div class="stat"><b>${n}</b><span>${l}</span></div>`).join("");
 function chain(id){let f=F[id];while(f&&f.supersedes&&F[f.supersedes])f=F[f.supersedes];const out=[];while(f){out.push(f);f=f.superseded_by?F[f.superseded_by]:null}return out}
@@ -193,11 +195,13 @@ function timeline(){let html="",last="";
   (t.prompt?`<div class="prompt">${esc(t.prompt)}</div>`:"")+
   ch.map(c=>{const f=F[c.id],o=c.old&&F[c.old];return `<div class="change ${c.kind}"><span class="badge">${c.kind}</span><span class="subj">${esc(f.subject)}</span>
    <span class="tag">${esc(f.project)}</span>
-   ${o?`<div class="old">${esc(o.statement)}</div>`:""}<div>${esc(f.statement)}</div>${c.why?`<div class="why">${esc(c.why)}</div>`:""}</div>`}).join("")+`</div></div>`}
+   ${o?(c.kind==="pending"?`<div class="why">Still current, edit not applied: ${esc(o.statement)}</div>`:`<div class="old">${esc(o.statement)}</div>`):""}<div>${esc(f.statement)}</div>${c.why?`<div class="why">${esc(c.why)}</div>`:""}</div>`}).join("")+`</div></div>`}
  return html||`<div class="empty">No changes match these filters.</div>`}
-function facts(){const rows=active.filter(match);if(!rows.length)return `<div class="empty">No facts match these filters.</div>`;
+function facts(){const pend=D.facts.filter(f=>f.status==="pending");
+ const flag=pend.length?`<div class="flag"><b>⚠ ${pend.length} outside edit${pend.length>1?"s":""} waiting for approval, not used by Claude:</b>`+pend.map(f=>`<div>${f.id}: ${esc(f.statement)}${f.supersedes?` (would replace ${f.supersedes})`:""}</div>`).join("")+`</div>`:"";
+ const rows=active.filter(match);if(!rows.length)return flag+`<div class="empty">No facts match these filters.</div>`;
  const by={};rows.forEach(f=>(by[f.project]??=[]).push(f));
- return Object.keys(by).sort().map(p=>`<div class="proj">${esc(p)} <span class="sub">(${by[p].length})</span></div><div class="grid">`+by[p].map(f=>{const vs=chain(f.id);
+ return flag+Object.keys(by).sort().map(p=>`<div class="proj">${esc(p)} <span class="sub">(${by[p].length})</span></div><div class="grid">`+by[p].map(f=>{const vs=chain(f.id);
   return `<div class="card"><div class="top"><span class="subj">${esc(f.subject)}</span><span class="id">${f.id}</span></div>
   <div>${esc(f.statement)}</div>
   <div class="tags"><span class="tag">${esc(f.type.replace("_"," "))}</span><span class="tag scope-${f.scope}">${esc(f.scope)} scope</span>${f.asserted_by?`<span class="tag">said by ${esc(f.asserted_by)}</span>`:""}${vs.length>1?`<span class="tag">version ${vs.length}</span>`:""}</div>

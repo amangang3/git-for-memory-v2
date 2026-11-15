@@ -52,7 +52,7 @@ def cmd_replay(store: Store, args) -> None:
                 continue
             human = store.absorb_hand_edits()
             if human:
-                print(f"   hand edits to fact files found and recorded as human changes (commit {human})")
+                print(f"   ! outside edits to fact files flagged and held for approval (commit {human}); see `gfm pending`")
             active = store.active()
             cwd_project = projects.project_for(t.cwd, store.root)
             try:
@@ -157,9 +157,32 @@ def cmd_inject(store: Store, args) -> None:
 def cmd_check(store: Store, args) -> None:
     store.init()
     sha = store.absorb_hand_edits()
-    print(f"hand edits recorded as human changes in commit {sha}" if sha else "no hand edits: fact files match git")
+    print(f"! outside edits found: flagged and held for approval in commit {sha}" if sha else "no outside edits: fact files match git")
     if sha:
         print(store._git("show", "--stat", "--format=%an%n%B", sha))
+        for f in store.pending():
+            print(f"   pending {f.id}: gfm approve {f.id} --reason '...'   or   gfm reject {f.id}")
+
+
+def cmd_pending(store: Store, args) -> None:
+    items = store.pending()
+    if not items:
+        print("no pending outside edits")
+    for f in items:
+        cur = store.get(f.supersedes) if f.supersedes else None
+        print(f"{f.id} [{f.project}] {f.subject}  ({f.evidence})")
+        if cur:
+            print(f"    current ({cur.id}): {cur.statement}")
+        print(f"    proposed:      {f.statement}")
+
+
+def cmd_approve(store: Store, args) -> None:
+    try:
+        fn = store.approve if args.cmd == "approve" else store.reject
+        sha = fn(args.fact_id, args.reason)
+    except ValueError as e:
+        sys.exit(str(e))
+    print(f"{args.fact_id} {'approved and applied' if args.cmd == 'approve' else 'rejected'} (commit {sha})")
 
 
 def cmd_correct(store: Store, args) -> None:
@@ -197,7 +220,12 @@ def main() -> None:
     inj.add_argument("--cwd", default="")
     inj.add_argument("--project")
     inj.add_argument("--budget", type=int, default=6000)
-    sub.add_parser("check", help="find hand edits to fact files and record them as human changes")
+    sub.add_parser("check", help="find edits made directly to fact files and hold them for approval")
+    sub.add_parser("pending", help="list outside edits waiting for approval")
+    for name in ("approve", "reject"):
+        ap_ = sub.add_parser(name, help=f"{name} a pending outside edit")
+        ap_.add_argument("fact_id")
+        ap_.add_argument("--reason", default="")
     co = sub.add_parser("correct", help="replace a fact's statement, recorded as a human change")
     co.add_argument("fact_id")
     co.add_argument("statement")
@@ -231,6 +259,10 @@ def main() -> None:
         cmd_inject(store, args)
     elif args.cmd == "check":
         cmd_check(store, args)
+    elif args.cmd == "pending":
+        cmd_pending(store, args)
+    elif args.cmd in ("approve", "reject"):
+        cmd_approve(store, args)
     elif args.cmd == "correct":
         cmd_correct(store, args)
     elif args.cmd == "log":
