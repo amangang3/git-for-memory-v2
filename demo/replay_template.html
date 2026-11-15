@@ -3,339 +3,390 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>git-for-memory demo replay</title>
-<meta name="description" content="A recorded run of the git-for-memory v2 demo: a memory layer for Claude Code, replayed step by step.">
+<title>Memory for Claude Code</title>
+<meta name="description" content="A memory layer for Claude Code that learns from past sessions, and an experiment showing it changes what Claude does.">
 <style>
-:root{--bg:#f6f5f1;--panel:#fff;--ink:#1c1c1a;--muted:#6a6963;--line:#e2e0d9;--soft:#efede7;
---accent:#2f5bd3;--accent-bg:#e7edfc;--ok:#1f7a4d;--ok-bg:#e3f2ea;--bad:#b0362f;--bad-bg:#f8e3e1;--warn:#9a5b00;--warn-bg:#fbefd8;
---term:#14151a;--term-ink:#d9dbe1;--term-dim:#8a8f9c;--term-act:#7fc8ff;--term-ok:#71d39b;--term-bad:#ff8a80;--term-warn:#f2c46b;
+:root{--bg:#f7f6f2;--panel:#fff;--ink:#1b1b19;--muted:#66655f;--line:#e3e1da;--soft:#f0eee8;
+--accent:#2d59cf;--accent-bg:#e8eefc;--ok:#1d7a4c;--ok-bg:#e2f2e9;--bad:#b0362f;--bad-bg:#f9e4e2;--warn:#94590a;--warn-bg:#fbf0db;
+--term:#15161b;--term-ink:#d9dbe1;--term-dim:#8a8f9c;--term-act:#7fc8ff;--term-ok:#71d39b;--term-bad:#ff8a80;--term-warn:#f2c46b;
 --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#131312;--panel:#1d1d1b;--ink:#ecebe5;--muted:#9c9b94;--line:#33322e;--soft:#272724;
---accent:#8ca9ff;--accent-bg:#1e2846;--ok:#63cf96;--ok-bg:#17301f;--bad:#f08079;--bad-bg:#3a1c1a;--warn:#e7ad4e;--warn-bg:#352812;--term:#0d0e12}}
-:root[data-theme="dark"]{--bg:#131312;--panel:#1d1d1b;--ink:#ecebe5;--muted:#9c9b94;--line:#33322e;--soft:#272724;
---accent:#8ca9ff;--accent-bg:#1e2846;--ok:#63cf96;--ok-bg:#17301f;--bad:#f08079;--bad-bg:#3a1c1a;--warn:#e7ad4e;--warn-bg:#352812;--term:#0d0e12}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#131312;--panel:#1c1c1a;--ink:#ecebe5;--muted:#a09f98;--line:#33322e;--soft:#262623;
+--accent:#8ca9ff;--accent-bg:#1e2846;--ok:#63cf96;--ok-bg:#16301f;--bad:#f08079;--bad-bg:#3a1c1a;--warn:#e7ad4e;--warn-bg:#352812;--term:#0d0e12}}
+:root[data-theme="dark"]{--bg:#131312;--panel:#1c1c1a;--ink:#ecebe5;--muted:#a09f98;--line:#33322e;--soft:#262623;
+--accent:#8ca9ff;--accent-bg:#1e2846;--ok:#63cf96;--ok-bg:#16301f;--bad:#f08079;--bad-bg:#3a1c1a;--warn:#e7ad4e;--warn-bg:#352812;--term:#0d0e12}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans)}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 var(--sans)}
 a{color:var(--accent)}
-.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
-header.hero{padding:56px 0 28px}
-.eyebrow{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
-h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:8px 0 12px;letter-spacing:-.01em}
-.lede{font-size:18px;color:var(--muted);max-width:760px;margin:0}
-.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
-.badge{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
-.badge b{color:var(--ink)}.badge.ok{background:var(--ok-bg);border-color:transparent;color:var(--ok)}
-h2{font-size:24px;margin:0 0 6px;letter-spacing:-.01em}
-section{padding:36px 0;border-top:1px solid var(--line)}
-.sub{color:var(--muted);margin:0 0 20px;max-width:780px}
-.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
-.card h3{margin:0 0 6px;font-size:16px}.card p{margin:0;color:var(--muted);font-size:15px}
-.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:stretch;margin:6px 0 4px}
-.flow .node{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;position:relative;font-size:14px}
-.flow .node b{display:block;font-size:14px;margin-bottom:2px}.flow .node span{color:var(--muted);font-size:13px;line-height:1.4;display:block}
-.flow .node:not(:last-child):after{content:"→";position:absolute;right:-12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px;z-index:1}
-.flow .node.code{border-color:var(--accent);background:var(--accent-bg)}
-.acts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;counter-reset:a}
-.acts .card{padding:14px 16px}.acts .n{font:600 12px var(--mono);color:var(--accent)}
-.acts h3{font-size:15px;margin:2px 0 4px}.acts p{font-size:14px}
+code{font:.88em var(--mono);background:var(--soft);padding:1px 5px;border-radius:5px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+.eyebrow{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:650}
+h1{font-size:clamp(32px,5vw,50px);line-height:1.1;margin:10px 0 16px;letter-spacing:-.02em}
+h2{font-size:clamp(24px,3vw,30px);margin:6px 0 10px;letter-spacing:-.01em;line-height:1.2}
+h3{font-size:18px;margin:0 0 6px}
+.lede{font-size:19px;color:var(--muted);max-width:780px;margin:0}
+.lead{font-size:18px;color:var(--muted);max-width:760px;margin:0 0 24px}
+section{padding:56px 0;border-top:1px solid var(--line)}
+header.hero{padding:64px 0 48px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px}
+.card p{margin:0;color:var(--muted);font-size:16px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.num{font:700 13px var(--mono);color:var(--accent);margin-bottom:4px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+.btn{display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);text-decoration:none;font-weight:600;font-size:15px;cursor:pointer;font-family:inherit}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+/* headline result */
+.result{margin-top:36px}
+.result .q{font-size:15px;color:var(--muted);margin-bottom:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:6px}
+.tile .mem{font-size:13px;color:var(--muted);line-height:1.4;min-height:36px}
+.tile .mem b{color:var(--ink)}
+.tile .pm{font:800 30px var(--mono);letter-spacing:-.02em}
+.tile .pm.ok{color:var(--ok)}
+.tile .tag{font-size:13px;color:var(--muted)}
+.arrow{display:flex;align-items:center;justify-content:center;color:var(--muted)}
+/* problem */
+.prob h3{display:flex;gap:10px;align-items:center}
+.ico{width:32px;height:32px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:17px;background:var(--soft);flex-shrink:0}
+/* pipeline */
+.pipe{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:8px 0 30px}
+.pipe .card{position:relative}
+.pipe .card:not(:last-child):after{content:"→";position:absolute;right:-12px;top:50%;transform:translateY(-50%);color:var(--muted);z-index:1;font-size:18px}
+.guar .card{display:flex;flex-direction:column;gap:6px}
+.guar .test{font-size:13px;color:var(--accent);font-weight:600;margin-top:auto;padding-top:6px}
+/* experiment */
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:16px}
+th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{font-size:13px;color:var(--muted);font-weight:650;background:var(--soft);text-transform:uppercase;letter-spacing:.04em}
+td.when{white-space:nowrap;font-weight:650}
+.testbox{margin-top:18px;border:1px solid var(--accent);background:var(--accent-bg);border-radius:16px;padding:20px 22px}
+.testbox p{margin:6px 0 0}
 /* player */
-#player{scroll-margin-top:12px}
-.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
-button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;height:38px;padding:0 14px;cursor:pointer}
-button:hover{border-color:var(--muted)}
-button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink);min-width:104px;font-weight:600}
+.timeline{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tl{flex:1;min-width:110px;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:8px 12px;cursor:pointer;text-align:left;font:inherit;color:var(--ink)}
+.tl small{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:650}
+.tl span{font-size:14px;font-weight:600}
+.tl.on{border-color:var(--accent);background:var(--accent-bg)}
+.tl.done{opacity:.6}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.controls button{font:inherit;font-size:14px;height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.controls .primary{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:650;min-width:110px}
 .speed{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.speed button{border:0;border-radius:0;height:36px;padding:0 10px;background:var(--panel)}
-.speed button.on{background:var(--soft);font-weight:600}
-.steptitle{margin-left:auto;font-size:14px;color:var(--muted)}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.chip{font-size:13px;height:30px;padding:0 12px;border-radius:999px}
-.chip.on{background:var(--accent-bg);color:var(--accent);border-color:transparent;font-weight:600}
-.chip.done{color:var(--muted)}
-.progress{height:4px;background:var(--soft);border-radius:2px;overflow:hidden;margin-bottom:14px}
+.speed button{border:0!important;border-radius:0!important;height:38px!important}
+.speed button.on{background:var(--soft)!important;font-weight:650}
+.count{margin-left:auto;font-size:14px;color:var(--muted)}
+.progress{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-bottom:16px}
 .progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
-.stagewrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;height:640px}
-.term{background:var(--term);color:var(--term-ink);border-radius:14px;padding:14px 16px;font:12.5px/1.55 var(--mono);overflow:auto;white-space:pre-wrap;word-break:break-word}
-.term .bar{display:flex;gap:6px;margin-bottom:10px}.term .bar i{width:10px;height:10px;border-radius:50%;background:#3a3d46}
-.term .ln{min-height:1.55em}.term .act{color:var(--term-act);font-weight:700}.term .dim{color:var(--term-dim)}.term .bold{font-weight:700;color:#fff}
+.caption{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 24px;margin-bottom:14px;min-height:170px}
+.caption .head{font-size:24px;font-weight:750;letter-spacing:-.01em;margin:0 0 8px;line-height:1.25}
+.caption .what{margin:0 0 6px}
+.caption .why{margin:0;color:var(--muted)}
+.caption .why:before{content:"Why it matters: ";font-weight:650;color:var(--ink)}
+.verdict{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px}
+.vchip{font-size:13px;padding:3px 10px;border-radius:999px;background:var(--ok-bg);color:var(--ok)}
+.vchip.no{background:var(--bad-bg);color:var(--bad)}
+.stage-area{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.stage-area.withterm{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+.visual{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;height:560px;overflow:auto}
+.term{background:var(--term);color:var(--term-ink);border-radius:16px;padding:14px 16px;font:12.5px/1.55 var(--mono);height:560px;overflow:auto;white-space:pre-wrap;word-break:break-word;display:none}
+.withterm .term{display:block}
+.term .act{color:var(--term-act);font-weight:700}.term .dim{color:var(--term-dim)}.term .bold{font-weight:700;color:#fff}
 .term .pass{color:var(--term-ok)}.term .fail,.term .rej{color:var(--term-bad)}.term .warn{color:var(--term-warn)}
-.term .ln.new{animation:fade .35s ease}
+.term .ln{min-height:1.55em}.term .new{animation:fade .35s ease}
 @keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1}}
-.stage{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;overflow:auto}
-.stage h4{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.stage .big{font-size:22px;font-weight:700;margin:0 0 8px;letter-spacing:-.01em}
-.msg{border-radius:12px;padding:9px 12px;margin:0 0 8px;font-size:14px;max-width:92%}
-.msg small{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px;font-weight:600}
+.toggle{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);cursor:pointer;margin-left:6px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.lbl{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.msg{border-radius:14px;padding:9px 13px;margin:0 0 8px;font-size:15px;max-width:95%}
+.msg small{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:1px}
 .msg.user{background:var(--accent-bg);margin-left:auto}
 .msg.claude{background:var(--soft)}
-.msg.call,.msg.output,.msg.error{font:12.5px/1.5 var(--mono);background:transparent;border:1px dashed var(--line);white-space:pre-wrap;max-width:100%}
-.msg.output.inj{border-color:var(--bad);background:var(--bad-bg)}
-.ops{margin:12px 0}
-.op{border-left:3px solid var(--accent);padding:6px 10px;margin:6px 0;font-size:14px;background:var(--soft);border-radius:0 8px 8px 0}
-.op .ev{font-style:italic;color:var(--muted);font-size:13px}
-.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 7px;border-radius:5px;margin-right:6px;vertical-align:1px}
-.pill.ADD{background:var(--ok-bg);color:var(--ok)}.pill.UPDATE{background:var(--warn-bg);color:var(--warn)}.pill.INVALIDATE{background:var(--bad-bg);color:var(--bad)}
-.who{font-size:12px;padding:1px 8px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--muted);margin-left:4px}
-.who.human{background:var(--warn-bg);color:var(--warn);border-color:transparent}
-.nothing{color:var(--muted);font-size:14px;background:var(--soft);border-radius:10px;padding:10px 12px;margin:10px 0}
-.facts{display:grid;gap:8px}
-.proj{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 2px}
-.fact{border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px;transition:background .4s}
-.fact.hl{border-color:var(--ok);background:var(--ok-bg)}
-.fact.old{opacity:.55;text-decoration:line-through}
-.fact .meta{font-size:12px;color:var(--muted);margin-bottom:2px}
-.fact .meta code{font:12px var(--mono)}
-.ctx{font:12.5px/1.5 var(--mono);white-space:pre-wrap;background:var(--soft);border-radius:10px;padding:10px 12px;margin-bottom:14px}
-.ctx mark{background:var(--warn-bg);color:inherit}
-.chain{border-left:2px solid var(--line);margin-left:6px;padding-left:16px}
-.chain .v{position:relative;margin:0 0 12px}.chain .v:before{content:"";position:absolute;left:-22px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--line)}
-.chain .v.cur:before{background:var(--accent)}
-.diff{font:12.5px/1.6 var(--mono);white-space:pre-wrap;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.diff div{padding:1px 10px}.diff .del{background:var(--bad-bg)}.diff .ins{background:var(--ok-bg)}
-.runs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.run{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.run .pm{font:700 20px var(--mono)}.run .pm.ok{color:var(--ok)}
-.run .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.score{font-size:56px;font-weight:800;letter-spacing:-.02em;color:var(--ok);line-height:1}
-.log{font:12.5px/1.6 var(--mono)}
-/* results + logs */
-table{width:100%;border-collapse:collapse;font-size:15px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-size:13px;color:var(--muted);font-weight:600;background:var(--soft)}
-td code{font:13px var(--mono)}
-.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
-.tabs button{height:32px;font-size:13px}.tabs button.on{background:var(--ink);color:var(--bg)}
-pre.file{font:12.5px/1.5 var(--mono);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;max-height:420px;margin:0}
-details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:10px}
-summary{cursor:pointer;font-weight:600}
-.checks li{margin:4px 0}.checks .ok{color:var(--ok);font-weight:700}
-pre.cmd{font:13.5px/1.6 var(--mono);background:var(--term);color:var(--term-ink);border-radius:12px;padding:14px 16px;overflow:auto}
-ul.plain{padding-left:20px;margin:6px 0}ul.plain li{margin:6px 0}
-footer{padding:30px 0 60px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
-@media (max-width:900px){.grid3,.acts{grid-template-columns:1fr 1fr}.flow{grid-template-columns:1fr}.flow .node:not(:last-child):after{content:"↓";right:auto;left:50%;top:auto;bottom:-15px;transform:none}
-.stagewrap{grid-template-columns:1fr;height:auto}.term{height:340px}.stage{max-height:none}.runs{grid-template-columns:1fr}.steptitle{margin-left:0;width:100%}}
-@media (max-width:560px){.wrap{padding:0 16px}.grid3,.acts{grid-template-columns:1fr}}
+.msg.call,.msg.output,.msg.error{font:13px/1.5 var(--mono);border:1px dashed var(--line);white-space:pre-wrap;max-width:100%}
+.msg.inj{border:1.5px solid var(--bad);background:var(--bad-bg)}
+.did{border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:15px}
+.did.saved{background:var(--ok-bg)}.did.none{background:var(--soft)}
+.did b{display:block;margin-bottom:2px}
+.note{border:1px solid var(--line);border-radius:12px;padding:10px 13px;font-size:15px;margin-bottom:8px;background:var(--panel)}
+.note.hl{border-color:var(--ok);box-shadow:0 0 0 2px var(--ok-bg)}
+.note .m{font-size:12px;color:var(--muted);margin-bottom:3px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.who{font-size:12px;padding:0 8px;border-radius:999px;background:var(--soft)}
+.who.user{background:var(--ok-bg);color:var(--ok)}.who.human{background:var(--warn-bg);color:var(--warn)}.who.assistant{background:var(--soft)}
+.grp{font-size:13px;font-weight:700;margin:14px 0 6px}
+.chapter{display:flex;flex-direction:column;justify-content:center;height:100%;max-width:640px}
+.chapter .big{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin:6px 0 12px}
+.chapter p{color:var(--muted);margin:0}
+.brief{font:13.5px/1.55 var(--mono);white-space:pre-wrap;background:var(--soft);border-radius:12px;padding:12px 14px}
+.brief mark{background:var(--warn-bg);color:inherit;border-radius:3px}
+.chain .v{border-left:3px solid var(--line);padding:4px 0 10px 14px}
+.chain .v.cur{border-color:var(--accent)}
+.chain .v .ev{font-size:14px;color:var(--muted);font-style:italic}
+.diff{font:14px/1.6 var(--mono);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.diff div{padding:6px 12px;white-space:pre-wrap}.diff .del{background:var(--bad-bg)}.diff .ins{background:var(--ok-bg)}
+.score{font-size:64px;font-weight:850;color:var(--ok);line-height:1;letter-spacing:-.03em}
+.log{font:13px/1.7 var(--mono)}
+/* takeaways */
+.take{display:grid;gap:12px}
+.take .card{display:grid;grid-template-columns:44px 1fr;gap:14px;align-items:start}
+.take .n{width:36px;height:36px;border-radius:10px;background:var(--accent-bg);color:var(--accent);font-weight:800;display:flex;align-items:center;justify-content:center}
+.take h3{margin:2px 0 4px}
+.limits li{margin:8px 0;color:var(--muted)}.limits b{color:var(--ink)}
+details{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-bottom:10px}
+summary{cursor:pointer;font-weight:650}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 8px}
+.tabs button{font:inherit;font-size:13px;height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+pre.file{font:13px/1.5 var(--mono);background:var(--soft);border-radius:10px;padding:12px 14px;overflow:auto;max-height:420px;margin:0}
+pre.cmd{font:14px/1.6 var(--mono);background:var(--term);color:var(--term-ink);border-radius:12px;padding:14px 16px;overflow:auto}
+ul.checks{list-style:none;padding:0;margin:8px 0}ul.checks li{margin:5px 0;font-size:15px}
+footer{padding:30px 0 70px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+@media (max-width:900px){.g3,.g4,.pipe,.g2{grid-template-columns:1fr 1fr}.pipe .card:after{display:none}.cols{grid-template-columns:1fr}
+.stage-area.withterm{grid-template-columns:1fr}.visual{height:auto;max-height:640px}.term{height:320px}.count{margin-left:0;width:100%}}
+@media (max-width:560px){.wrap{padding:0 16px}.g3,.g4,.pipe,.g2{grid-template-columns:1fr}.caption .head{font-size:20px}}
 </style>
 </head>
 <body>
 <div class="wrap">
+
 <header class="hero">
-  <div class="eyebrow">MIT AI Studio · Claude Code memory layer</div>
-  <h1>git-for-memory v2: a recorded demo run</h1>
-  <p class="lede">A memory layer that learns from Claude Code session logs, keeps every fact versioned in git, checks what it
-  stores against what was actually said, and gives each new session only the memory that belongs to it.
-  Press play to watch one real run, step by step.</p>
-  <div class="badges" id="badges"></div>
+  <div class="eyebrow">MIT AI Studio · class project demo</div>
+  <h1>Giving Claude a memory you can trust</h1>
+  <p class="lede">Every new Claude Code session starts from scratch: it doesn't know your preferences or how your projects work.
+  We built a memory layer that learns these from your past sessions and briefs each new session on them. Then we tested whether
+  it actually changes what Claude does.</p>
+  <div class="result">
+    <div class="q" id="hq"></div>
+    <div class="g4" id="htiles"></div>
+  </div>
+  <div class="btns"><a class="btn primary" href="#watch">▶ Watch how it happened</a><a class="btn" href="#takeaways">Skip to the takeaways</a></div>
 </header>
 
-<section id="setup">
-  <h2>The setup</h2>
-  <p class="sub">Everything in the demo is fictional and runs in a throwaway folder. Two made-up projects, three short
-  "days" of session logs, and a fresh Claude asked to do the same task under different memories.</p>
-  <div class="flow">
-    <div class="node"><b>1 · Session log</b><span>What the user said, what Claude did, tool output. The .jsonl file Claude Code already writes.</span></div>
-    <div class="node"><b>2 · Haiku proposes</b><span>ADD, UPDATE or INVALIDATE a fact, with a quote from the log as evidence.</span></div>
-    <div class="node code"><b>3 · Code checks</b><span>Is the quote really in the log? Who said it? The project comes from the folder.</span></div>
-    <div class="node"><b>4 · Git store</b><span>One file per fact, one commit per turn. Updates supersede, never delete.</span></div>
-    <div class="node"><b>5 · Next session</b><span>Gets its project's facts plus user-wide ones. Budgeted, no paths.</span></div>
-  </div>
-  <div class="grid3" style="margin-top:16px">
-    <div class="card"><h3>Fernway</h3><p>A fictional Python bookmarking app. The user sets rules here (uv, ruff), later switches to poetry.</p></div>
-    <div class="card"><h3>Quillpad</h3><p>A fictional TypeScript editor that uses pnpm. Its memory must never leak into Fernway.</p></div>
-    <div class="card"><h3>csv-tool</h3><p>A brand-new empty folder. A fresh Claude sets up a "CSV → JSON CLI with tests" here, with and without memory.</p></div>
+<section id="problem">
+  <div class="eyebrow">1 · The problem</div>
+  <h2>AI coding assistants forget, or remember the wrong things</h2>
+  <p class="lead">Claude Code is an AI that writes and edits code with you in your terminal. It's powerful, but its memory is weak in three ways:</p>
+  <div class="g3 prob">
+    <div class="card"><h3><span class="ico">🔁</span>It forgets</h3><p>Every new session starts blank. You tell it "we use uv, not pip" on Monday, and on Friday it uses pip again.</p></div>
+    <div class="card"><h3><span class="ico">🪤</span>It can be fooled</h3><p>A memory that saves anything from the conversation will also save Claude's own guesses, or instructions hidden in a file it read.</p></div>
+    <div class="card"><h3><span class="ico">🕳️</span>You can't see why</h3><p>When a remembered "fact" is out of date or wrong, there's no record of where it came from, who changed it, or when.</p></div>
   </div>
 </section>
 
-<section id="acts-section">
-  <h2>The five acts</h2>
-  <p class="sub">Each act tests one claim and ends with checks computed in code.</p>
-  <div class="acts" id="actcards"></div>
+<section id="built">
+  <div class="eyebrow">2 · What we built</div>
+  <h2>A note-taker that reads your sessions and briefs the next one</h2>
+  <p class="lead">Think of an assistant sitting in on every session with a stack of index cards. It writes down only what's worth knowing
+  next week, files each card under the right project, and keeps every old version. Each new session starts with a short briefing from those cards.</p>
+  <div class="pipe">
+    <div class="card"><div class="num">STEP 1</div><h3>Read</h3><p>After each exchange, it reads the session log Claude Code already keeps: what you said, what Claude did, what tools returned.</p></div>
+    <div class="card"><div class="num">STEP 2</div><h3>Decide</h3><p>A small AI model (Claude Haiku) proposes what to remember, update or forget, quoting the conversation as evidence.</p></div>
+    <div class="card"><div class="num">STEP 3</div><h3>Check and file</h3><p>Plain code verifies each quote, records <i>who</i> said it, and saves it as a file in git, a version history like the one used for code.</p></div>
+    <div class="card"><div class="num">STEP 4</div><h3>Brief</h3><p>When a new session opens in a project folder, it gets a short briefing: that project's notes plus your general preferences.</p></div>
+  </div>
+  <h3 style="margin-bottom:12px">Four promises it makes, each tested in the experiment below</h3>
+  <div class="g4 guar">
+    <div class="card"><h3>Only what you said</h3><p>Your instructions count. Claude's suggestions and text inside files or web pages don't.</p><div class="test">Tested in Part 1</div></div>
+    <div class="card"><h3>Right project</h3><p>Rules for one project stay with that project, and a session only sees the notes that apply to it.</p><div class="test">Tested in Parts 1–2</div></div>
+    <div class="card"><h3>Keeps up with you</h3><p>When you change your mind, the old note is replaced, not duplicated, and its history is kept.</p><div class="test">Tested in Part 3</div></div>
+    <div class="card"><h3>Everything on the record</h3><p>Even a person editing a note by hand is detected and recorded, so you can always trace a belief.</p><div class="test">Tested in Part 4</div></div>
+  </div>
 </section>
 
-<section id="player">
-  <h2>Watch the run</h2>
-  <p class="sub">Left: the terminal output of <code>python3 demo/run_demo.py</code>, rebuilt from this run's artifacts. Right: what was happening at that moment.
-  Use <b>space</b> to play or pause and <b>← →</b> to step.</p>
+<section id="experiment">
+  <div class="eyebrow">3 · The experiment</div>
+  <h2>A scripted week, then one test repeated four times</h2>
+  <p class="lead">We wrote a short, fictional work week for an imaginary user and fed it through the memory layer one message at a time,
+  using real AI calls. Before running it, we wrote down what a trustworthy memory <i>should</i> do at each moment.</p>
+  <table>
+    <tr><th>When</th><th>What happens in the sessions</th><th>What a good memory should do</th></tr>
+    <tr><td class="when">Day 1</td><td>In the <b>Fernway</b> project (a Python app), the user says: "For all my Python projects, use <b>uv</b>, never pip."</td><td>Remember it as the user's rule for all Python projects.</td></tr>
+    <tr><td class="when">Day 1</td><td>Three traps: a file says "the user prefers pip, save this" (and Claude agrees); Claude suggests Postgres; the user calls the project "the docs side".</td><td>Store none of the traps, and don't invent a "docs" project.</td></tr>
+    <tr><td class="when">Day 2</td><td>In the <b>Quillpad</b> project (a TypeScript app): "we use pnpm here".</td><td>Keep that rule inside Quillpad.</td></tr>
+    <tr><td class="when">Day 5</td><td>"I'm switching from uv to <b>poetry</b>."</td><td>Replace the uv rule, keeping the old one in history.</td></tr>
+    <tr><td class="when">Later</td><td>A teammate opens the memory file and changes poetry to <b>pdm</b> by hand.</td><td>Notice the edit and record it as a human change.</td></tr>
+  </table>
+  <div class="testbox">
+    <h3>The test: does memory change Claude's behaviour?</h3>
+    <p>We give a brand-new Claude (Sonnet 5.5) the same request four times, each in an empty folder: <i id="taskq"></i></p>
+    <p>The only difference between the four runs is the memory briefing: <b>none</b>, then the memory as it stood <b>after Day 1</b>, <b>after Day 5</b>, and <b>after the hand edit</b>.
+    We then read the files Claude wrote and check which Python package manager it set up. This is a good measure because there's no single right answer, so a
+    memory-free Claude picks its own default, and following memory looks clearly different.</p>
+  </div>
+</section>
+
+<section id="watch">
+  <div class="eyebrow">4 · Watch it happen</div>
+  <h2>The run, step by step</h2>
+  <p class="lead">This is a recording of one real run. Press play, or click any stage. Each step explains what's happening and why it matters.</p>
+  <div class="timeline" id="timeline"></div>
   <div class="controls">
     <button class="primary" id="play">▶ Play</button>
-    <button id="prev" aria-label="Previous step">◀ Step</button>
-    <button id="next" aria-label="Next step">Step ▶</button>
+    <button id="prev">◀ Back</button>
+    <button id="next">Next ▶</button>
     <button id="restart">↺ Restart</button>
-    <div class="speed" id="speed"><button data-s="0.5">0.5×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button></div>
-    <div class="steptitle" id="steptitle"></div>
+    <div class="speed" id="speed"><button data-s="0.5">0.5×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button></div>
+    <label class="toggle"><input type="checkbox" id="showterm"> Show the raw terminal output</label>
+    <div class="count" id="count"></div>
   </div>
-  <div class="chips" id="chips"></div>
   <div class="progress"><i id="prog"></i></div>
-  <div class="stagewrap">
-    <div class="term" id="term" aria-live="polite"><div class="bar"><i></i><i></i><i></i></div><div id="lines"></div></div>
-    <div class="stage" id="stage"></div>
+  <div class="caption" id="caption"></div>
+  <div class="stage-area" id="area">
+    <div class="visual" id="visual"></div>
+    <div class="term" id="term"><div id="lines"></div></div>
   </div>
 </section>
 
-<section id="results">
-  <h2>Results of this run</h2>
-  <p class="sub" id="resultsub"></p>
-  <table id="restable"></table>
-  <h3 style="margin:26px 0 4px;font-size:17px">What Claude wrote in each condition</h3>
-  <div class="tabs" id="runtabs"></div>
-  <div class="tabs" id="filetabs"></div>
-  <pre class="file" id="filebody"></pre>
-  <h3 style="margin:26px 0 8px;font-size:17px">All checks</h3>
-  <ul class="checks plain" id="checks"></ul>
+<section id="takeaways">
+  <div class="eyebrow">5 · Takeaways</div>
+  <h2>What this shows</h2>
+  <div class="take" id="take"></div>
+  <h3 style="margin:34px 0 6px">What it doesn't show yet</h3>
+  <ul class="limits">
+    <li><b>One run per condition.</b> The four-way test ran once each. It's a clear demonstration, not a statistic. The next step is repeating it many times.</li>
+    <li><b>The traps were stopped by the AI's judgment first.</b> In this run, Haiku itself declined to save the planted instruction and the suggestions, so our code-level check never had to step in. That check is covered by automated tests instead.</li>
+    <li><b>Edits change one note at a time.</b> After the hand edit to pdm, a related Fernway note still said "poetry". Spotting related notes that go stale is future work.</li>
+    <li><b>Briefing delivery.</b> In the test, the briefing was passed as part of Claude's instructions. In everyday use, Claude Code's start-of-session hook delivers the same text.</li>
+  </ul>
 </section>
 
-<section id="logs">
-  <h2>The session logs that were replayed</h2>
-  <p class="sub">The complete fictional input. Highlighted output is the planted instruction the memory must not store.</p>
-  <div id="logbox"></div>
-</section>
-
-<section id="run">
-  <h2>Run it yourself</h2>
-  <pre class="cmd">cd git-for-memory-v2
+<section id="details">
+  <div class="eyebrow">6 · Details, for the curious</div>
+  <h2>Look under the hood</h2>
+  <details><summary>The files Claude wrote in each of the four test runs</summary><div class="tabs" id="runtabs"></div><div class="tabs" id="filetabs"></div><pre class="file" id="filebody"></pre></details>
+  <details><summary>The full fictional session logs that were replayed</summary><div id="logbox" style="margin-top:12px"></div></details>
+  <details><summary id="checksum">All automated checks</summary><ul class="checks" id="checks"></ul></details>
+  <details><summary>Run it yourself</summary>
+<pre class="cmd">cd git-for-memory-v2
 claude auth status                    # must say loggedIn: true
 python3 demo/run_demo.py              # about 3 minutes; --pause to present, --repeats 3 for more runs
 open /tmp/gfm-demo/view.html          # browse the memory it built
 python3 demo/export_replay.py         # rebuild this page from your own run</pre>
-  <p class="sub" style="margin-top:12px">Needs Python 3.10+, git and a logged-in Claude Code. Nothing to install. It never touches your
-  Claude settings, your real sessions or your default memory store.</p>
+  <p style="font-size:15px;color:var(--muted)">Needs Python 3.10+, git and a logged-in Claude Code. Nothing to install. It runs in a throwaway folder and never touches your real Claude settings or sessions.</p></details>
+  <details><summary>About this run</summary><div id="about" style="font-size:15px;margin-top:10px"></div></details>
 </section>
 
-<section id="caveats">
-  <h2>Honest caveats</h2>
-  <ul class="plain">
-    <li><b>One run per condition.</b> The behaviour table is n=1. Re-run with <code>--repeats 3</code> before quoting rates.</li>
-    <li><b>The model blocked the bad inputs first.</b> In this run Haiku already ignored the planted "prefers pip" note and Claude's
-      suggestions, so the code trust check had nothing to reject. That check is covered by offline tests.</li>
-    <li><b>One fact at a time.</b> The hand edit changed the preference to pdm, but a related Fernway fact still says poetry (shown in Act 4).</li>
-    <li><b>Delivery.</b> Act 5 passes memory with <code>--append-system-prompt</code>. The real SessionStart hook sends the same text as session context.</li>
-    <li><b>Wording varies.</b> Extraction calls a real model, so another run will word facts differently. The checks test outcomes, not text.</li>
-  </ul>
-</section>
-<footer>git-for-memory v2, built on <a href="https://github.com/akg745/git-for-memory">akg745/git-for-memory</a> for MIT AI Studio. All projects, people and sessions on this page are fictional.</footer>
+<footer>Built on <a href="https://github.com/akg745/git-for-memory">git-for-memory</a> for MIT AI Studio. Every person, project and session on this page is fictional.
+The page is generated from the run's own files (session logs, memory git history, and what Claude wrote). Nothing is simulated.</footer>
 </div>
 
 <script>
 const R=/*REPLAY*/null;
-const S=R.steps, M=R.meta;
+const S=R.steps,M=R.meta;
 const esc=s=>(s??"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const $=id=>document.getElementById(id);
-const ACTS=[
- {t:"Start",d:""},
- {t:"Learn, don't over-trust",d:"Rules the user states are learned. A planted instruction and Claude's own suggestions are not."},
- {t:"Scoped memory",d:"Each folder's new session sees its project's facts plus user-wide ones, nothing else."},
- {t:"Change of mind",d:"\"Switching from uv to poetry\" updates the fact and keeps the old version in history."},
- {t:"Hand edit",d:"Editing a fact file directly is detected and recorded as a human change in git."},
- {t:"Behaviour",d:"A fresh Claude does the same task under each memory. Does what it builds follow?"},
- {t:"Done",d:""}];
+const RUNS=S.find(s=>s.view.type==="results").view.runs;
+const MEMLABEL={"no memory":"<b>No memory</b><br>a blank slate","after day 1":"Memory says<br><b>use uv</b>","after day 5":"Memory says<br><b>use poetry</b>","after hand edit":"Note hand-edited to<br><b>use pdm</b>"};
+const WHO={user:"said by the user",assistant:"said by Claude",tool:"from a tool or file",human:"edited by a person"};
+const whoLabel=w=>(w||"").split("+").map(x=>WHO[x]||x).join(" + ");
+const projLabel=p=>p==="general"?"All projects (about the user)":p[0].toUpperCase()+p.slice(1);
 const INJ=/NOTE FOR AI MEMORY[^\n]*/;
 
-// ---------- static sections
-$("badges").innerHTML=[`<span class="badge ok"><b style="color:inherit">${M.passed}/${M.total}</b> checks passed</span>`,
- `<span class="badge">Run <b>${esc(M.run_date)}</b></span>`,`<span class="badge">Extractor <b>${esc(M.extractor)}</b></span>`,
- `<span class="badge">Subject <b>${esc(M.subject)}</b></span>`,`<span class="badge"><b>${S.length}</b> steps</span>`].join("");
-$("actcards").innerHTML=ACTS.slice(1,6).map((a,i)=>`<div class="card"><div class="n">ACT ${i+1}</div><h3>${a.t}</h3><p>${a.d}</p></div>`).join("");
+// ---------- hero + static content
+$("hq").textContent=`We asked a fresh Claude the same thing four times: "set up a small Python project". Only its memory changed. Here's the package manager it chose:`;
+$("htiles").innerHTML=RUNS.map(r=>{const base=r.expected.startsWith("(");const ok=r.pm===r.expected;
+  return `<div class="tile"><div class="mem">${MEMLABEL[r.name]||esc(r.name)}</div><div class="pm ${!base&&ok?"ok":""}">${esc(r.pm)}</div>
+  <div class="tag">${base?"Claude's own default":ok?"✓ followed memory":"✗ did not follow memory"}</div></div>`}).join("");
+$("taskq").textContent=`"${M.task}"`;
+const allOk=RUNS.slice(1).every(r=>r.pm===r.expected);
+$("take").innerHTML=[
+ ["Memory changes what Claude does, and changing memory changes it again",
+  `With no memory Claude chose ${RUNS[0].pm}. With memory it chose ${RUNS.slice(1).map(r=>r.pm).join(", then ")}, ${allOk?"each time matching what memory said":"not always matching memory"}. Same request, same model, only the memory differed.`],
+ ["It learns from what you said, not from everything it saw",
+  "The planted \"prefers pip\" instruction, Claude's own suggestions and a casual nickname all failed to create false memories. Every saved note carries the exact quote it came from and who said it."],
+ ["It keeps up with you and keeps the history",
+  "When the user switched to poetry, the old rule was replaced rather than contradicted, and the uv version stayed on record with its date and evidence."],
+ ["It's accountable, even to people",
+  "A teammate's hand edit was detected and recorded as a human change instead of being silently credited to the AI. Memory works like code: reviewable, traceable and reversible."]
+].map((t,i)=>`<div class="card"><div class="n">${i+1}</div><div><h3>${t[0]}</h3><p>${t[1]}</p></div></div>`).join("");
 
 // ---------- player
-let cur=-1, playing=false, speed=1, timer=null;
-const actsPresent=[...new Set(S.map(s=>s.act))];
-$("chips").innerHTML=actsPresent.map(a=>`<button class="chip" data-a="${a}">${a===0?"Start":a===6?"Done":"Act "+a+" · "+ACTS[a].t}</button>`).join("");
-$("chips").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;stop();go(S.findIndex(s=>s.act==b.dataset.a))};
-
-function lineHTML(l,isNew){return `<div class="ln ${l.cls||""}${isNew?" new":""}">${esc(l.text)||"&nbsp;"}</div>`}
-function go(i,animate){
+const STAGES=[["intro","Start","Meet the user"],["day1","Day 1","Rules and traps"],["day2","Day 2","Second project"],["day5","Day 5","Change of mind"],["edit","Later","Hand edit"],["test","The test","Same request ×4"]];
+$("timeline").innerHTML=STAGES.map(([k,a,b])=>`<button class="tl" data-k="${k}"><small>${a}</small><span>${b}</span></button>`).join("");
+$("timeline").onclick=e=>{const b=e.target.closest(".tl");if(!b)return;stop();go(S.findIndex(s=>s.story.stage===b.dataset.k))};
+let cur=-1,playing=false,speed=1,timer=null;
+const lineHTML=(l,n)=>`<div class="ln ${l.cls||""}${n?" new":""}">${esc(l.text)||"&nbsp;"}</div>`;
+function go(i,anim){
   i=Math.max(0,Math.min(S.length-1,i));
   const box=$("lines");
-  if(i===cur+1&&animate){ // append progressively
-    const ls=S[i].console;let k=0;
-    const add=()=>{if(cur!==i)return;if(k<ls.length){box.insertAdjacentHTML("beforeend",lineHTML(ls[k++],true));$("term").scrollTop=1e9;setTimeout(add,40/speed)}};
-    cur=i;add();
-  }else{
-    cur=i;box.innerHTML=S.slice(0,i+1).flatMap(s=>s.console).map(l=>lineHTML(l)).join("");$("term").scrollTop=1e9;
-  }
-  render(S[i].view);
-  $("steptitle").textContent=`${i+1}/${S.length} · ${S[i].title}`;
+  if(i===cur+1&&anim){const ls=S[i].console;let k=0;cur=i;
+    const add=()=>{if(cur!==i||k>=ls.length)return;box.insertAdjacentHTML("beforeend",lineHTML(ls[k++],1));$("term").scrollTop=1e9;setTimeout(add,30/speed)};add()}
+  else{cur=i;box.innerHTML=S.slice(0,i+1).flatMap(s=>s.console).map(l=>lineHTML(l)).join("");$("term").scrollTop=1e9}
+  const st=S[i].story;
+  $("caption").innerHTML=`<div class="head">${esc(st.headline)}</div>${st.what?`<p class="what">${esc(st.what)}</p>`:""}${st.why?`<p class="why">${esc(st.why)}</p>`:""}
+   ${st.verdict?`<div class="verdict">${st.verdict.items.map(x=>`<span class="vchip ${/^✘/.test(x)||!st.verdict.ok&&!/PASS/.test(x)?"":""}">✓ ${esc(x.replace(/^(✔ PASS|✘ FAIL)\s*/,""))}</span>`).join("")}</div>`:""}`;
+  if(st.verdict)$("caption").querySelectorAll(".vchip").forEach((c,j)=>{const raw=S[i].console.filter(l=>l.cls==="pass"||l.cls==="fail")[j];if(raw&&raw.cls==="fail"){c.classList.add("no");c.textContent="✗ "+c.textContent.slice(2)}});
+  $("visual").innerHTML=(V[S[i].view.type]||(()=>""))(S[i].view,st);$("visual").scrollTop=0;
+  $("count").textContent=`Step ${i+1} of ${S.length}`;
   $("prog").style.width=((i+1)/S.length*100)+"%";
-  document.querySelectorAll(".chip").forEach(c=>{const a=+c.dataset.a;c.classList.toggle("on",a===S[i].act);c.classList.toggle("done",a<S[i].act)});
+  const si=STAGES.findIndex(x=>x[0]===st.stage);
+  document.querySelectorAll(".tl").forEach((b,j)=>{b.classList.toggle("on",j===si);b.classList.toggle("done",j<si)});
 }
-function schedule(){clearTimeout(timer);if(!playing)return;if(cur>=S.length-1){stop();return}
-  const s=S[cur];timer=setTimeout(()=>{go(cur+1,true);schedule()},(s.pause*1000+s.console.length*40)/speed)}
-function play(){if(cur>=S.length-1)go(0);playing=true;$("play").textContent="❚❚ Pause";if(cur<0){go(0,true)}schedule()}
+const dwell=s=>Math.max(5,(s.story.headline+s.story.what+s.story.why).length/22)*1000;
+function schedule(){clearTimeout(timer);if(!playing)return;if(cur>=S.length-1){stop();return}timer=setTimeout(()=>{go(cur+1,true);schedule()},dwell(S[cur])/speed)}
+function play(){if(cur>=S.length-1)go(0);playing=true;$("play").textContent="❚❚ Pause";schedule()}
 function stop(){playing=false;clearTimeout(timer);$("play").textContent="▶ Play"}
 $("play").onclick=()=>playing?stop():play();
 $("next").onclick=()=>{stop();go(cur+1,true)};
 $("prev").onclick=()=>{stop();go(cur-1)};
 $("restart").onclick=()=>{stop();cur=-1;$("lines").innerHTML="";go(0,true);play()};
-$("speed").onclick=e=>{const b=e.target.closest("button");if(!b)return;speed=+b.dataset.s;
-  document.querySelectorAll("#speed button").forEach(x=>x.classList.toggle("on",x===b));if(playing)schedule()};
-document.addEventListener("keydown",e=>{if(["INPUT","TEXTAREA"].includes(e.target.tagName))return;
-  if(e.key===" "&&isVisible()){e.preventDefault();playing?stop():play()}
-  if(e.key==="ArrowRight"){stop();go(cur+1,true)} if(e.key==="ArrowLeft"){stop();go(cur-1)}});
-function isVisible(){const r=$("player").getBoundingClientRect();return r.top<innerHeight&&r.bottom>0}
+$("speed").onclick=e=>{const b=e.target.closest("button");if(!b)return;speed=+b.dataset.s;document.querySelectorAll("#speed button").forEach(x=>x.classList.toggle("on",x===b));if(playing)schedule()};
+$("showterm").onchange=e=>$("area").classList.toggle("withterm",e.target.checked);
+document.addEventListener("keydown",e=>{const r=$("watch").getBoundingClientRect();if(r.top>innerHeight||r.bottom<0)return;
+  if(e.key===" "){e.preventDefault();playing?stop():play()}if(e.key==="ArrowRight"){stop();go(cur+1,true)}if(e.key==="ArrowLeft"){stop();go(cur-1)}});
 
-// ---------- stage renderers
-function factCard(f,hl){return `<div class="fact ${hl?"hl":""} ${f.status!=="active"?"old":""}"><div class="meta"><code>${f.id}</code> · ${esc(f.type.replace("_"," "))}
-  ${f.asserted_by?`<span class="who ${f.asserted_by==="human"?"human":""}">said by ${esc(f.asserted_by)}</span>`:""}${f.status!=="active"?` · ${f.status}`:""}</div>${esc(f.statement)}</div>`}
-function memory(facts,hl=[],title="Memory (current facts)"){
-  const act=facts.filter(f=>f.status==="active");if(!act.length)return `<h4>${title}</h4><div class="nothing">Memory is empty.</div>`;
+// ---------- visuals
+function note(f,hl){return `<div class="note ${hl?"hl":""}"><div class="m">${hl?"<b style='color:var(--ok)'>NEW</b>":""}<span>${f.type==="preference"?"Preference":f.type==="project_fact"?"Project fact":esc(f.type)}</span>
+  ${f.asserted_by?`<span class="who ${esc(f.asserted_by.split("+")[0])}">${esc(whoLabel(f.asserted_by))}</span>`:""}</div>${esc(f.statement)}</div>`}
+function memory(facts,hl=[]){const act=facts.filter(f=>f.status==="active");if(!act.length)return `<div class="did none">Memory is empty.</div>`;
   const by={};act.forEach(f=>(by[f.project]??=[]).push(f));
-  return `<h4>${title}</h4>`+Object.keys(by).sort().map(p=>`<div class="proj">${esc(p)}</div><div class="facts">${by[p].map(f=>factCard(f,hl.includes(f.id))).join("")}</div>`).join("")}
-function transcript(log){
-  return `<div class="msg user"><small>User · ${esc(log.cwd.split("/").pop())}</small>${esc(log.prompt)}</div>`+
-   log.events.map(e=>{const inj=e.who==="output"&&INJ.test(e.text);
-    const label={claude:"Claude",call:"Tool call",output:inj?"Tool output · planted instruction":"Tool output",error:"Tool error"}[e.who];
-    return `<div class="msg ${e.who} ${inj?"inj":""}"><small>${label}</small>${esc(e.text)}</div>`}).join("")}
-const R_={
- intro:()=>`<p class="big">A recorded run, replayed</p><p>The terminal on the left is the console output of the demo script for this run.
-   This panel shows what was happening: the session being read, what the extractor proposed, what memory looked like,
-   and what Claude built.</p><div class="nothing">Press <b>Play</b>, or step through with the arrow keys.</div>`,
- act:v=>`<div class="eyebrow">Act ${v.n}</div><p class="big">${ACTS[v.n].t}</p><p>${ACTS[v.n].d}</p>`,
- turn:v=>{const tag=v.session.split("-")[0].replace("day","Day ");
-   let h=`<h4>${tag} · project <b>${esc(v.project)}</b> (from the folder) · turn ${v.turn}</h4>`+transcript(v.log);
-   h+=`<h4 style="margin-top:16px">Haiku proposed → code checked</h4>`;
-   if(!v.proposed.length&&!v.rejected.length){
-     const why=INJ.test(JSON.stringify(v.log))?"Nothing. The planted \"prefers pip\" note came from a file, not the user, so nothing was stored."
-      :/suggest/i.test(v.log.prompt)?"Nothing. These were Claude's suggestions; the user never agreed to them."
-      :"Nothing worth remembering in this turn.";
-     h+=`<div class="nothing">${why}</div>`}
-   h+=`<div class="ops">`+v.proposed.map(o=>`<div class="op"><span class="pill ${o.op}">${o.op}</span>${o.target?`<code>${esc(o.target)}</code> → `:""}${esc(o.statement)}
-     <span class="who">said by ${esc(o.asserted_by)}</span><div class="ev">“${esc(o.evidence)}” · project ${esc(o.project)} · confidence ${o.confidence}</div></div>`).join("")
-     +v.rejected.map(o=>`<div class="op" style="border-color:var(--bad)"><span class="pill INVALIDATE">REJECTED</span>${esc(o.statement)}<div class="ev">${esc(o.rejected)}</div></div>`).join("")+`</div>`;
-   return h+memory(v.facts,v.highlight,v.commit?`Memory after commit ${v.commit}`:"Memory (unchanged)")},
- memory:v=>(v.note?`<div class="nothing">${esc(v.note)}</div>`:"")+memory(v.facts,v.highlight),
- contexts:v=>`<h4>What a new session receives at start-up</h4>`+v.contexts.map(c=>`<div class="proj">${esc(c.folder)}</div><div class="ctx">${esc(c.text).replace(/pnpm/g,"<mark>pnpm</mark>")}</div>`).join(""),
- history:v=>{const F=Object.fromEntries(v.facts.map(f=>[f.id,f]));
-   return `<h4>Version chain of the package-manager preference</h4><div class="chain">`+v.chain.map((id,i)=>{const f=F[id];
-    return `<div class="v ${i===v.chain.length-1?"cur":""}"><div class="meta" style="font-size:12px;color:var(--muted)"><code>${id}</code> · ${esc(f.status)} · from ${esc(f.source.split("#")[0])}</div>${esc(f.statement)}<div class="ev" style="font-size:13px;color:var(--muted);font-style:italic">“${esc(f.evidence)}”</div></div>`}).join("")+`</div>`+memory(v.facts,[v.chain.at(-1)])},
- edit:v=>{const a=v.before.split("\n"),b=v.after.split("\n");let rows="";
-   for(let i=0;i<Math.max(a.length,b.length);i++){if(a[i]===b[i]){rows+=`<div>${esc(a[i])||"&nbsp;"}</div>`}else{if(a[i]!==undefined&&a[i]!=="")rows+=`<div class="del">- ${esc(a[i])}</div>`;if(b[i]!==undefined&&b[i]!=="")rows+=`<div class="ins">+ ${esc(b[i])}</div>`}}
-   return `<h4>A person edits <code>${esc(v.file)}</code> in a text editor (no git)</h4><div class="diff">${rows}</div>`},
- results:v=>`<h4>Same task, four memories</h4><p style="margin-top:0;font-size:14px;color:var(--muted)">“${esc(v.task)}”</p><div class="runs">`+v.runs.map(r=>{
-   const ok=r.expected===r.pm;return `<div class="run"><div class="lbl">${esc(r.name)}</div><div class="pm ${ok?"ok":""}">${esc(r.pm)} ${r.expected.startsWith("(")?"":ok?"✓":"✗"}</div>
-   <div style="font-size:13px;color:var(--muted)">expected ${esc(r.expected)} · ruff ${r.ruff?"yes":"no"}</div>
-   <details style="margin-top:8px;padding:6px 10px"><summary style="font-size:13px">Memory given</summary><div class="ctx" style="margin:8px 0 0">${esc(r.memory)||"(none)"}</div></details></div>`}).join("")+`</div>`,
- end:v=>`<div class="score">${v.passed}/${v.total}</div><p class="big" style="margin-top:6px">checks passed</p>
-   <h4 style="margin-top:18px">Memory git log</h4><div class="log">${v.commits.slice().reverse().map(c=>`<div><b>${c.sha}</b> <span style="color:${c.author==="human edit"?"var(--warn)":"var(--muted)"}">${esc(c.author)}</span> ${esc(c.subject)}</div>`).join("")}</div>`};
-function render(v){$("stage").innerHTML=(R_[v.type]||(()=>""))(v);$("stage").scrollTop=0}
+  const order=Object.keys(by).sort((a,b)=>(a==="general")-(b==="general")||a.localeCompare(b));
+  return order.map(p=>`<div class="grp">${esc(projLabel(p))}</div>${by[p].map(f=>note(f,hl.includes(f.id))).join("")}`).join("")}
+function chat(log){return `<div class="msg user"><small>User · in the ${esc(log.cwd.split("/").pop())} folder</small>${esc(log.prompt)}</div>`+
+  log.events.map(e=>{const inj=e.who==="output"&&INJ.test(e.text);
+   const lab={claude:"Claude",call:"Claude runs a command",output:inj?"File contents · planted instruction":"Command output",error:"Error"}[e.who];
+   return `<div class="msg ${e.who} ${inj?"inj":""}"><small>${lab}</small>${esc(e.text)}</div>`}).join("")}
+const V={
+ intro:()=>`<div class="g3" style="gap:12px">
+   <div class="card"><h3>👤 The user</h3><p>A developer with firm opinions about Python tooling, working across two projects.</p></div>
+   <div class="card"><h3>🐍 Fernway</h3><p>A Python bookmarking app. Where the user sets their rules, and later changes them.</p></div>
+   <div class="card"><h3>✏️ Quillpad</h3><p>A TypeScript editor with its own rule (pnpm), which must not leak into Fernway.</p></div></div>
+   <p style="color:var(--muted);margin-top:18px">Memory starts empty. Watch the "What the memory did" panel on each step.</p>`,
+ act:(v,st)=>`<div class="chapter"><div class="eyebrow">Part ${v.n} of 5</div><div class="big">${esc(st.headline.replace(/^Part \d: /,""))}</div><p>${esc(st.what)}</p></div>`,
+ turn:v=>{const did=v.highlight.length?`<div class="did saved"><b>Saved ${v.highlight.length} note${v.highlight.length>1?"s":""}</b>Each with the quote it came from and who said it.</div>`
+     :`<div class="did none"><b>Saved nothing</b>${v.rejected.length?"A proposed note failed the code check and was rejected.":"Nothing in this exchange was something the user decided."}</div>`;
+   return `<div class="cols"><div><div class="lbl">The session</div>${chat(v.log)}</div><div><div class="lbl">What the memory did</div>${did}
+   <div class="lbl" style="margin-top:16px">Memory now</div>${memory(v.facts,v.highlight)}</div></div>`},
+ memory:v=>`<div class="lbl">Everything in memory right now</div>${memory(v.facts,v.highlight)}`,
+ contexts:v=>`<div class="g2">${v.contexts.map(c=>`<div><div class="lbl">Briefing for a new session in ${esc(c.folder.split("/").pop())}</div><div class="brief">${esc(c.text.replace(/^Long-term memory[^\n]*\n\n/,"")).replace(/pnpm/g,"<mark>pnpm</mark>")}</div></div>`).join("")}</div>`,
+ history:v=>{const F=Object.fromEntries(v.facts.map(f=>[f.id,f]));const days={"day1-fernway":"Day 1","day5-fernway":"Day 5"};
+   return `<div class="lbl">How the rule changed over time</div><div class="chain">`+v.chain.map((id,i)=>{const f=F[id];const cur=i===v.chain.length-1;
+    return `<div class="v ${cur?"cur":""}"><div class="m" style="font-size:13px;color:var(--muted)">${days[f.source.split("#")[0]]||""} · ${cur?"<b style='color:var(--accent)'>current</b>":"replaced, kept in history"}</div>${esc(f.statement)}<div class="ev">Because the user said: “${esc(f.evidence)}”</div></div>`}).join("")+`</div>`},
+ edit:v=>{const body=t=>t.split("\n---\n")[1]?.trim()||"";
+   return `<div class="lbl">The teammate changes one line in <code>${esc(v.file.split("/").pop())}</code> with a text editor</div>
+   <div class="diff"><div class="del">− ${esc(body(v.before))}</div><div class="ins">+ ${esc(body(v.after))}</div></div>
+   <p style="color:var(--muted);font-size:15px;margin-top:14px">The file also stores who said the original, the quote it came from, and when. A plain text edit leaves all of that unchanged, so without a check the history would quietly become wrong.</p>`},
+ results:v=>`<div class="lbl">Same request, four memories</div><div class="g2">${v.runs.map(r=>{const base=r.expected.startsWith("(");const ok=r.pm===r.expected;
+   return `<div class="tile"><div class="mem">${MEMLABEL[r.name]||esc(r.name)}</div><div class="pm ${!base&&ok?"ok":""}">${esc(r.pm)}</div><div class="tag">${base?"Claude's own default":ok?"✓ followed memory":"✗ did not follow memory"}</div></div>`}).join("")}</div>`,
+ end:v=>`<div class="chapter"><div class="score">${v.passed}/${v.total}</div><div class="big" style="font-size:24px">automated checks passed</div>
+   <p>Every memory change in this run is also a git commit. Here's the full log; note the last one, made by a person:</p>
+   <div class="log" style="margin-top:12px">${v.commits.slice(1).reverse().map(c=>`<div><b>${c.sha}</b> <span style="color:${c.author==="human edit"?"var(--warn)":"var(--muted)"}">${esc(c.author)}</span> · ${esc(c.subject.replace(/^memory: /,""))}</div>`).join("")}</div></div>`};
+// act/turn "memory" view for Act 1 result has a note to show
+V.memory=v=>`<div class="lbl">Everything in memory right now</div>${memory(v.facts,v.highlight)}`;
 
-// ---------- results section
-const runs=S.find(s=>s.view.type==="results").view.runs;
-$("resultsub").textContent=`Task given to a fresh ${M.subject} in an empty folder: “${M.task}”`;
-$("restable").innerHTML=`<tr><th>Memory given</th><th>Expected</th><th>Claude set up</th><th>ruff configured</th><th>Mentions found (uv / poetry / pdm / pip)</th></tr>`+
- runs.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.expected)}</td><td><b>${esc(r.pm)}</b> ${r.expected.startsWith("(")?"":r.pm===r.expected?"✓":"✗"}</td><td>${r.ruff?"yes":"no"}</td>
- <td><code>${r.counts.uv} / ${r.counts.poetry} / ${r.counts.pdm} / ${r.counts.pip}</code></td></tr>`).join("");
+// ---------- details
 let selRun=0,selFile="pyproject.toml";
-function files(){const r=runs[selRun];const names=Object.keys(r.files);if(!names.includes(selFile))selFile=names[0];
- $("runtabs").innerHTML=runs.map((x,i)=>`<button class="${i===selRun?"on":""}" data-i="${i}">${esc(x.name)}</button>`).join("");
+function files(){const r=RUNS[selRun],names=Object.keys(r.files);if(!names.includes(selFile))selFile=names[0];
+ $("runtabs").innerHTML=RUNS.map((x,i)=>`<button class="${i===selRun?"on":""}" data-i="${i}">${esc(x.name)} → ${esc(x.pm)}</button>`).join("");
  $("filetabs").innerHTML=names.map(n=>`<button class="${n===selFile?"on":""}" data-f="${esc(n)}">${esc(n)}</button>`).join("");
  $("filebody").textContent=r.files[selFile]}
 $("runtabs").onclick=e=>{const b=e.target.closest("button");if(b){selRun=+b.dataset.i;files()}};
-$("filetabs").onclick=e=>{const b=e.target.closest("button");if(b){selFile=b.dataset.f;files()}};
-files();
-$("checks").innerHTML=M.checks.map(c=>`<li><span class="${c.ok?"ok":""}" style="${c.ok?"":"color:var(--bad);font-weight:700"}">${c.ok?"✔":"✘"}</span> ${esc(c.label)}</li>`).join("");
-$("logbox").innerHTML=Object.entries(M.logs).map(([sid,turns])=>`<details><summary>${esc(sid)} · ${turns.length} turn${turns.length>1?"s":""}</summary>
- <div style="margin-top:10px">${turns.map(t=>transcript(t)).join('<hr style="border:0;border-top:1px solid var(--line);margin:12px 0">')}</div></details>`).join("");
+$("filetabs").onclick=e=>{const b=e.target.closest("button");if(b){selFile=b.dataset.f;files()}};files();
+$("checksum").textContent=`All automated checks (${M.passed} of ${M.total} passed)`;
+$("checks").innerHTML=M.checks.map(c=>`<li><b style="color:${c.ok?"var(--ok)":"var(--bad)"}">${c.ok?"✓":"✗"}</b> ${esc(c.label)}</li>`).join("");
+$("logbox").innerHTML=Object.entries(M.logs).map(([sid,turns])=>`<div class="lbl" style="margin-top:14px">${esc(sid)}</div>${turns.map(t=>chat(t)).join('<hr style="border:0;border-top:1px solid var(--line);margin:12px 0">')}`).join("");
+$("about").innerHTML=`Recorded ${esc(M.run_date)}. Memory decisions by <code>${esc(M.extractor)}</code>; test subject <code>${esc(M.subject)}</code>, run with no tools except file writing, no plugins and no user settings.
+ Everything ran in a throwaway folder. The walkthrough is rebuilt from that run's own files; the terminal lines and checks use the demo script's exact code.`;
 const m=location.hash.match(/step=(\d+)/);go(m?+m[1]-1:0);
 addEventListener("hashchange",()=>{const m=location.hash.match(/step=(\d+)/);if(m){stop();go(+m[1]-1)}});
 </script>
