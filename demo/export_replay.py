@@ -24,6 +24,23 @@ import run_demo as rd  # noqa: E402
 from gfm.inject import build_context  # noqa: E402
 from gfm.store import Store  # noqa: E402
 
+# For each test condition: when the memory snapshot was taken, what it says about Python tooling, and why
+# that predicts the outcome. (Kept beside CONDS so the page explains each run the same way the demo set it up.)
+COND_TEXT = [
+    ("Before Day 1 (empty)", "nothing about this user",
+     "Claude knows nothing about this user, so it falls back on its own habits. This is the baseline. We make no prediction; "
+     "we just want to see Claude's default, so the other runs can be compared with it."),
+    ("After Day 1", "use uv, never pip",
+     "On Day 1 the user said \"for all my Python projects, use uv, never pip\". Memory filed it as a rule for every project, so even "
+     "this brand-new folder is briefed with it. If memory works, Claude should use uv."),
+    ("After Day 5", "use poetry, not uv",
+     "On Day 5 the user switched to poetry. Memory replaced the uv rule rather than keeping both, so the briefing now says poetry "
+     "and only poetry. If the update worked, Claude should switch to poetry."),
+    ("After the hand edit", "use pdm",
+     "A teammate edited the note in a text editor, changing poetry to pdm. Memory recorded that as a human change, and the next "
+     "briefing carries it. If edits flow through, Claude should use pdm."),
+]
+
 CONDS = [("no memory", "no-memory", None, "(baseline)"), ("after day 1", "after-day-1", "1-after-day1.txt", "uv"),
          ("after day 5", "after-day-5", "2-after-day5.txt", "poetry"),
          ("after hand edit", "after-hand-edit", "3-after-hand-edit.txt", "pdm")]
@@ -225,30 +242,47 @@ def main():
 
     # ---------------- Act 5
     task = rd.TASK
+    final = Store(store)
+    rule_facts = {rd.pm_rule(f): f for f in final.all() if f.type == "preference" and rd.pm_rule(f)}
+    origin_label = {"day1-fernway": "Day 1 conversation", "day5-fernway": "Day 5 conversation", "human": "teammate's hand edit"}
+    runs = []
+    for (name, folder, ctxfile, expected), (when, says, why) in zip(CONDS, COND_TEXT):
+        d = work / "runs" / f"{folder}-1" / "csv-tool"
+        sc = rd.score(d)
+        files = {str(p.relative_to(d)): p.read_text(errors="ignore") for p in sorted(d.rglob("*")) if p.is_file()}
+        memory = (work / "context" / ctxfile).read_text() if ctxfile else ""
+        rule = next((ln for ln in memory.splitlines() if "(preference)" in ln and re.search(rf"\b{expected}\b", ln)), "")
+        src = rule_facts.get(expected)
+        origin = None
+        if src:
+            sid = src.source.split("#")[0]
+            origin = {"where": origin_label.get(sid, sid), "quote": src.evidence, "who": src.asserted_by}
+        # proof: the lines in Claude's own files that show which tool it set up
+        pat = re.compile(rd.PM_PATTERNS.get(sc["pm"], "$^"), re.I)
+        proof = []
+        for fn in sorted(files, key=lambda n: (n != "pyproject.toml", n != "README.md", n)):
+            for ln in files[fn].splitlines():
+                if pat.search(ln) and len(proof) < 5 and (fn, ln.strip()) not in [(x["file"], x["line"]) for x in proof]:
+                    proof.append({"file": fn, "line": ln.strip()})
+        res = d.parent / "result.json"
+        runs.append({"name": name, "expected": expected, "pm": sc["pm"], "ruff": sc["ruff"], "counts": sc["counts"],
+                     "when": when, "says": says, "why": why, "memory": memory, "rule": rule, "origin": origin,
+                     "proof": proof, "files": files,
+                     "cost": json.loads(res.read_text()).get("cost") if res.exists() else None})
     out = acthead(5, "Does memory change what Claude actually does?",
                   f"The same task is given to a fresh Claude ({rd.SUBJECT_MODEL}, no tools except file writing, no settings, no MCP) in a "
                   f"brand-new empty folder, csv-tool: \"{task}\" It runs with no memory, then with the memory a new project would get at "
                   f"each stage (only facts about the user in general). We then read the files it wrote and detect which package manager it set up.")
     out += [L("  running 4 Claude sessions in parallel (about a minute)…")]
-    step(5, out, {"type": "act", "n": 5}, pause=4, title="Act 5")
-    runs = []
-    for name, folder, ctxfile, expected in CONDS:
-        d = work / "runs" / f"{folder}-1" / "csv-tool"
-        sc = rd.score(d)
-        files = {}
-        for p in sorted(d.rglob("*")):
-            if p.is_file():
-                files[str(p.relative_to(d))] = p.read_text(errors="ignore")
-        res = d.parent / "result.json"
-        runs.append({"name": name, "expected": expected, "pm": sc["pm"], "ruff": sc["ruff"], "counts": sc["counts"],
-                     "memory": (work / "context" / ctxfile).read_text() if ctxfile else "", "files": files,
-                     "cost": json.loads(res.read_text()).get("cost") if res.exists() else None})
+    step(5, out, {"type": "testsetup"}, pause=4, title="Act 5")
+    for i, r in enumerate(runs):
+        step(5, [], {"type": "run", "i": i}, pause=6, title=f"Test run {i + 1}")
     out = [L(""), L(f"  {'condition':<17}{'expected':<12}{'observed (run 1..n)':<34}ruff", "bold")]
     out += [L(f"  {r['name']:<17}{r['expected']:<12}{r['pm']:<34}{'yes' if r['ruff'] else 'no'}") for r in runs]
     out += [L(f"  files written by each run: /tmp/gfm-demo/runs  ·  list-price estimate $0.29 (billed to your subscription)", "dim"), L("")]
     for r in runs[1:]:
         out += chk(f"{r['name']}: Claude used {r['expected']} in {int(r['pm'] == r['expected'])}/1 runs", r["pm"] == r["expected"])
-    step(5, out, {"type": "results", "runs": runs, "task": task}, pause=9, title="Act 5 result")
+    step(5, out, {"type": "results"}, pause=9, title="Act 5 result")
 
     passed = sum(c["ok"] for c in checks)
     step(6, [L(""), L(f"{passed}/{len(checks)} checks passed.", "bold"), L("  Viewer:      open /tmp/gfm-demo/view.html"),
@@ -256,8 +290,8 @@ def main():
          {"type": "end", "passed": passed, "total": len(checks), "commits": [{"sha": c[0], "author": c[1], "subject": c[3]} for c in commits]},
          pause=3, title="Done")
 
-    narrate(steps)
-    meta = {"run_date": commits[-1][2][:16], "extractor": "claude-haiku-5-5", "subject": rd.SUBJECT_MODEL, "task": task,
+    narrate(steps, runs)
+    meta = {"runs": runs, "run_date": commits[-1][2][:16], "extractor": "claude-haiku-5-5", "subject": rd.SUBJECT_MODEL, "task": task,
             "passed": passed, "total": len(checks), "checks": checks,
             "logs": {sid: list(read_log(work / "logs" / f"{sid}.jsonl").values()) for sid in ("day1-fernway", "day2-quillpad", "day5-fernway")}}
     data = json.dumps({"meta": meta, "steps": steps}, ensure_ascii=False)
@@ -271,7 +305,7 @@ def main():
     print(f"{len(steps)} steps, {passed}/{len(checks)} checks -> {out_path}")
 
 
-def narrate(steps: list[dict]) -> None:
+def narrate(steps: list[dict], runs: list[dict]) -> None:
     """Attach a plain-language story to each step: where we are, what happens, why it matters.
 
     Where the outcome could differ between runs, the text is chosen from this run's data,
@@ -279,7 +313,7 @@ def narrate(steps: list[dict]) -> None:
     """
     for s in steps:
         t, v = s["title"], s["view"]
-        checks = [l["text"] for l in s["console"] if l["cls"] in ("pass", "fail")]
+        checks = [{"text": l["text"].split("  ", 1)[1], "ok": l["cls"] == "pass"} for l in s["console"] if l["cls"] in ("pass", "fail")]
         ok = all(l["cls"] != "fail" for l in s["console"])
         saved = [f for f in v.get("facts", []) if f["id"] in v.get("highlight", [])]
         nothing = v.get("type") == "turn" and not v.get("commit")
@@ -350,21 +384,32 @@ def narrate(steps: list[dict]) -> None:
                              if any(l["cls"] == "warn" for l in s["console"]) else "")}
         elif t == "Act 5":
             st |= {"stage": "test", "headline": "Part 5: Does any of this change what Claude does?",
-                   "what": "The real test. We ask a brand-new Claude the same thing four times, in an empty folder: \"Set up a Python "
-                           "project for a small CSV-to-JSON tool, with tests.\" Each time it gets a different memory: none, then the "
-                           "memory as it stood after Day 1, after Day 5, and after the hand edit.",
-                   "why": "Then we read the files it wrote and check which package manager it chose."}
+                   "what": "We freeze the memory at four moments in the week: empty, after Day 1, after Day 5, and after the hand edit. "
+                           "For each snapshot we start a brand-new Claude in an empty folder and give it the same request.",
+                   "why": "Each run differs only in its memory, so any difference in what Claude builds comes from the memory."}
+        elif t.startswith("Test run"):
+            r = runs[int(t.split()[-1]) - 1]
+            base = r["expected"].startswith("(")
+            hit = r["pm"] == r["expected"]
+            st |= {"stage": "test", "headline": f"{t} of 4 · {r['when']}",
+                   "what": f"Memory says: {r['says']}. " + ("We make no prediction; this run shows Claude's default." if base
+                           else f"Prediction: Claude sets the project up with {r['expected']}."),
+                   "why": (f"With no memory, Claude chose {r['pm']} on its own. That's the habit memory has to override."
+                           if base else f"Claude chose {r['pm']}: " + ("it did what the memory said." if hit else
+                           "it did not follow the memory."))}
+            if not base:
+                st["verdict"] = {"ok": hit, "items": [{"text": f"expected {r['expected']}, Claude chose {r['pm']}", "ok": hit}]}
         elif t == "Act 5 result":
-            res = {r["name"]: r["pm"] for r in v.get("runs", [])}
-            st |= {"stage": "test", "headline": "Claude followed the memory every time" if ok else "Claude didn't always follow the memory",
+            res = {r["name"]: r["pm"] for r in runs}
+            st |= {"stage": "test", "headline": "Side by side: Claude followed the memory every time" if ok else "Side by side: Claude didn't always follow the memory",
                    "what": f"No memory: {res.get('no memory')}. After Day 1: {res.get('after day 1')}. After Day 5: {res.get('after day 5')}. "
                            f"After the hand edit: {res.get('after hand edit')}.",
-                   "why": "Same request, same model. The only thing that changed was the memory, and the result changed with it."}
+                   "why": "Same request, same model, empty folder each time. Only the memory changed, and Claude's choice changed with it."}
         elif t == "Done":
             st |= {"stage": "test", "headline": "That's the whole run",
                    "what": "Below the walkthrough: the results, the takeaways and the full logs.", "why": ""}
-        if checks:
-            st["verdict"] = {"ok": ok, "items": [c.split("  ", 1)[1] for c in checks]}
+        if checks and not st.get("verdict"):
+            st["verdict"] = {"ok": ok, "items": checks}
         st["saved"] = [{"id": f["id"], "statement": f["statement"], "who": f["asserted_by"], "project": f["project"]} for f in saved]
         s["story"] = st
 

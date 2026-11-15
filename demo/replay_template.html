@@ -89,8 +89,8 @@ td.when{white-space:nowrap;font-weight:650}
 .vchip.no{background:var(--bad-bg);color:var(--bad)}
 .stage-area{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
 .stage-area.withterm{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
-.visual{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;height:560px;overflow:auto}
-.term{background:var(--term);color:var(--term-ink);border-radius:16px;padding:14px 16px;font:12.5px/1.55 var(--mono);height:560px;overflow:auto;white-space:pre-wrap;word-break:break-word;display:none}
+.visual{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 22px;height:720px;overflow:auto}
+.term{background:var(--term);color:var(--term-ink);border-radius:16px;padding:14px 16px;font:12.5px/1.55 var(--mono);height:560px;overflow:auto;white-space:pre-wrap;word-break:break-word;display:none;height:720px}
 .withterm .term{display:block}
 .term .act{color:var(--term-act);font-weight:700}.term .dim{color:var(--term-dim)}.term .bold{font-weight:700;color:#fff}
 .term .pass{color:var(--term-ok)}.term .fail,.term .rej{color:var(--term-bad)}.term .warn{color:var(--term-warn)}
@@ -126,6 +126,31 @@ td.when{white-space:nowrap;font-weight:650}
 .diff div{padding:6px 12px;white-space:pre-wrap}.diff .del{background:var(--bad-bg)}.diff .ins{background:var(--ok-bg)}
 .score{font-size:64px;font-weight:850;color:var(--ok);line-height:1;letter-spacing:-.03em}
 .log{font:13px/1.7 var(--mono)}
+/* test lanes */
+.lanes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.lane{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;background:var(--panel);display:flex;flex-direction:column;gap:3px}
+.lane.cur{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+.lane .k{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.lane .says{font-weight:650}
+.lane .res{margin-top:4px;padding-top:6px;border-top:1px dashed var(--line);font:700 15px var(--mono)}
+.lane .res.ok{color:var(--ok)}.lane .res.q{color:var(--muted);font-weight:500}
+.reqbox{border:1px dashed var(--line);border-radius:12px;padding:10px 14px;font-size:15px;margin-bottom:14px}
+.reqbox b{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block}
+.brief .rule{background:var(--warn-bg);border-radius:4px;display:block;margin:0 -4px;padding:0 4px;outline:1.5px solid var(--warn)}
+.origin{font-size:14px;background:var(--soft);border-radius:10px;padding:10px 12px;margin-top:10px}
+.origin i{color:var(--muted)}
+.bigpm{font:800 34px var(--mono);letter-spacing:-.02em;line-height:1.1}
+.bigpm.ok{color:var(--ok)}.bigpm.no{color:var(--bad)}
+.proof{font:13px/1.5 var(--mono);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:10px}
+.proof div{padding:5px 10px;border-bottom:1px solid var(--line);white-space:pre-wrap;word-break:break-word}.proof div:last-child{border-bottom:0}
+.proof small{color:var(--muted);display:block;font-size:11px}
+.proof mark{background:var(--ok-bg);color:var(--ok);font-weight:700;border-radius:3px;padding:0 2px}
+.counts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.counts span{font:12px var(--mono);padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.counts span.top{background:var(--ok-bg);color:var(--ok);font-weight:700}
+.why2{font-size:15px;margin-top:12px}
+.restab td,.restab th{font-size:14px;padding:9px 12px}
+.restab td code{font-size:12px}
 /* takeaways */
 .take{display:grid;gap:12px}
 .take .card{display:grid;grid-template-columns:44px 1fr;gap:14px;align-items:start}
@@ -141,7 +166,7 @@ pre.file{font:13px/1.5 var(--mono);background:var(--soft);border-radius:10px;pad
 pre.cmd{font:14px/1.6 var(--mono);background:var(--term);color:var(--term-ink);border-radius:12px;padding:14px 16px;overflow:auto}
 ul.checks{list-style:none;padding:0;margin:8px 0}ul.checks li{margin:5px 0;font-size:15px}
 footer{padding:30px 0 70px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
-@media (max-width:900px){.g3,.g4,.pipe,.g2{grid-template-columns:1fr 1fr}.pipe .card:after{display:none}.cols{grid-template-columns:1fr}
+@media (max-width:900px){.lanes{grid-template-columns:1fr 1fr}.g3,.g4,.pipe,.g2{grid-template-columns:1fr 1fr}.pipe .card:after{display:none}.cols{grid-template-columns:1fr}
 .stage-area.withterm{grid-template-columns:1fr}.visual{height:auto;max-height:640px}.term{height:320px}.count{margin-left:0;width:100%}}
 @media (max-width:560px){.wrap{padding:0 16px}.g3,.g4,.pipe,.g2{grid-template-columns:1fr}.caption .head{font-size:20px}}
 </style>
@@ -212,6 +237,9 @@ footer{padding:30px 0 70px;color:var(--muted);font-size:14px;border-top:1px soli
     <p>The only difference between the four runs is the memory briefing: <b>none</b>, then the memory as it stood <b>after Day 1</b>, <b>after Day 5</b>, and <b>after the hand edit</b>.
     We then read the files Claude wrote and check which Python package manager it set up. This is a good measure because there's no single right answer, so a
     memory-free Claude picks its own default, and following memory looks clearly different.</p>
+    <table class="restab" style="margin-top:14px" id="condtable"></table>
+    <p style="font-size:14px;color:var(--muted)">The test folder is a new project, so its briefing holds only the user's all-projects notes (the Python tooling rule).
+    Fernway's and Quillpad's own notes stay out, exactly as in Part 2.</p>
   </div>
 </section>
 
@@ -275,7 +303,7 @@ const R=/*REPLAY*/null;
 const S=R.steps,M=R.meta;
 const esc=s=>(s??"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const $=id=>document.getElementById(id);
-const RUNS=S.find(s=>s.view.type==="results").view.runs;
+const RUNS=M.runs;
 const MEMLABEL={"no memory":"<b>No memory</b><br>a blank slate","after day 1":"Memory says<br><b>use uv</b>","after day 5":"Memory says<br><b>use poetry</b>","after hand edit":"Note hand-edited to<br><b>use pdm</b>"};
 const WHO={user:"said by the user",assistant:"said by Claude",tool:"from a tool or file",human:"edited by a person"};
 const whoLabel=w=>(w||"").split("+").map(x=>WHO[x]||x).join(" + ");
@@ -286,7 +314,10 @@ const INJ=/NOTE FOR AI MEMORY[^\n]*/;
 $("hq").textContent=`We asked a fresh Claude the same thing four times: "set up a small Python project". Only its memory changed. Here's the package manager it chose:`;
 $("htiles").innerHTML=RUNS.map(r=>{const base=r.expected.startsWith("(");const ok=r.pm===r.expected;
   return `<div class="tile"><div class="mem">${MEMLABEL[r.name]||esc(r.name)}</div><div class="pm ${!base&&ok?"ok":""}">${esc(r.pm)}</div>
-  <div class="tag">${base?"Claude's own default":ok?"✓ followed memory":"✗ did not follow memory"}</div></div>`}).join("");
+  <div class="tag">${base?"Claude's own default":ok?"✓ followed memory":"✗ did not follow memory"}</div>
+  <div class="tag" style="font-size:12px">${r.origin?"rule came from the "+esc(r.origin.where):"nothing learned yet"}</div></div>`}).join("");
+$("condtable").innerHTML=`<tr><th>Run</th><th>Memory snapshot taken</th><th>What the memory says about Python tooling</th><th>Our prediction</th></tr>`+
+ RUNS.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.when)}</td><td>${esc(r.says)}</td><td>${r.expected.startsWith("(")?"no prediction (baseline)":"Claude uses <b>"+esc(r.expected)+"</b>"}</td></tr>`).join("");
 $("taskq").textContent=`"${M.task}"`;
 const allOk=RUNS.slice(1).every(r=>r.pm===r.expected);
 $("take").innerHTML=[
@@ -314,8 +345,7 @@ function go(i,anim){
   else{cur=i;box.innerHTML=S.slice(0,i+1).flatMap(s=>s.console).map(l=>lineHTML(l)).join("");$("term").scrollTop=1e9}
   const st=S[i].story;
   $("caption").innerHTML=`<div class="head">${esc(st.headline)}</div>${st.what?`<p class="what">${esc(st.what)}</p>`:""}${st.why?`<p class="why">${esc(st.why)}</p>`:""}
-   ${st.verdict?`<div class="verdict">${st.verdict.items.map(x=>`<span class="vchip ${/^✘/.test(x)||!st.verdict.ok&&!/PASS/.test(x)?"":""}">✓ ${esc(x.replace(/^(✔ PASS|✘ FAIL)\s*/,""))}</span>`).join("")}</div>`:""}`;
-  if(st.verdict)$("caption").querySelectorAll(".vchip").forEach((c,j)=>{const raw=S[i].console.filter(l=>l.cls==="pass"||l.cls==="fail")[j];if(raw&&raw.cls==="fail"){c.classList.add("no");c.textContent="✗ "+c.textContent.slice(2)}});
+   ${st.verdict?`<div class="verdict">${st.verdict.items.map(x=>`<span class="vchip ${x.ok?"":"no"}">${x.ok?"✓":"✗"} ${esc(x.text)}</span>`).join("")}</div>`:""}`;
   $("visual").innerHTML=(V[S[i].view.type]||(()=>""))(S[i].view,st);$("visual").scrollTop=0;
   $("count").textContent=`Step ${i+1} of ${S.length}`;
   $("prog").style.width=((i+1)/S.length*100)+"%";
@@ -346,6 +376,10 @@ function chat(log){return `<div class="msg user"><small>User · in the ${esc(log
   log.events.map(e=>{const inj=e.who==="output"&&INJ.test(e.text);
    const lab={claude:"Claude",call:"Claude runs a command",output:inj?"File contents · planted instruction":"Command output",error:"Error"}[e.who];
    return `<div class="msg ${e.who} ${inj?"inj":""}"><small>${lab}</small>${esc(e.text)}</div>`}).join("")}
+function lanes(upto){return `<div class="lanes">${RUNS.map((r,i)=>{const base=r.expected.startsWith("("),ok=r.pm===r.expected,shown=i<=upto;
+  return `<div class="lane ${i===upto&&upto<4?"cur":""}"><div class="k">Run ${i+1} · ${esc(r.when)}</div><div>Memory says: <span class="says">${esc(r.says)}</span></div>
+  <div style="color:var(--muted)">Predicted: ${base?"(baseline)":esc(r.expected)}</div>
+  <div class="res ${shown?(base?"":ok?"ok":""):"q"}">${shown?"Claude chose "+esc(r.pm)+(base?"":ok?" ✓":" ✗"):"Claude chose …?"}</div></div>`}).join("")}</div>`}
 const V={
  intro:()=>`<div class="g3" style="gap:12px">
    <div class="card"><h3>👤 The user</h3><p>A developer with firm opinions about Python tooling, working across two projects.</p></div>
@@ -366,8 +400,29 @@ const V={
    return `<div class="lbl">The teammate changes one line in <code>${esc(v.file.split("/").pop())}</code> with a text editor</div>
    <div class="diff"><div class="del">− ${esc(body(v.before))}</div><div class="ins">+ ${esc(body(v.after))}</div></div>
    <p style="color:var(--muted);font-size:15px;margin-top:14px">The file also stores who said the original, the quote it came from, and when. A plain text edit leaves all of that unchanged, so without a check the history would quietly become wrong.</p>`},
- results:v=>`<div class="lbl">Same request, four memories</div><div class="g2">${v.runs.map(r=>{const base=r.expected.startsWith("(");const ok=r.pm===r.expected;
-   return `<div class="tile"><div class="mem">${MEMLABEL[r.name]||esc(r.name)}</div><div class="pm ${!base&&ok?"ok":""}">${esc(r.pm)}</div><div class="tag">${base?"Claude's own default":ok?"✓ followed memory":"✗ did not follow memory"}</div></div>`}).join("")}</div>`,
+ testsetup:()=>`<div class="reqbox"><b>The same request, sent to a brand-new Claude four times, each in an empty folder</b>${esc(M.task)}</div>
+   ${lanes(-1)}
+   <p style="font-size:15px;color:var(--muted);margin:0">Each run gets the memory as it stood at one moment in the week. Afterwards we read the files Claude wrote and look for
+   each tool's commands (for example <code>uv sync</code>, <code>poetry install</code>, <code>pdm add</code>, <code>pip install</code>). The tool it mentions most is the one it set the project up with.
+   Press <b>Next</b> to reveal the runs one at a time.</p>`,
+ run:v=>{const r=RUNS[v.i],base=r.expected.startsWith("("),ok=r.pm===r.expected;
+   const brief=r.memory?`<div class="brief">${r.memory.replace(/^Long-term memory[^\n]*\n\n/,"").split("\n").map(l=>l===r.rule?`<span class="rule">${esc(l)}</span>`:esc(l)).join("\n")}</div>
+      <div class="origin">The highlighted rule came from the <b>${esc(r.origin?.where||"?")}</b>${r.origin?`: <i>“${esc(r.origin.quote)}”</i> (${esc(whoLabel(r.origin.who))})`:""}</div>`
+     :`<div class="did none"><b>No briefing at all</b>Claude starts knowing nothing about this user.</div>`;
+   const word=new RegExp(`\\b(${r.pm})\\b`,"gi");
+   const proof=r.proof.map(p=>`<div><small>${esc(p.file)}</small>${esc(p.line).replace(word,"<mark>$1</mark>")}</div>`).join("");
+   const top=Object.entries(r.counts).sort((a,b)=>b[1]-a[1])[0][0];
+   return `${lanes(v.i)}<div class="cols"><div><div class="lbl">① What Claude was told before starting</div>${brief}
+     <div class="lbl" style="margin-top:16px">② What we expected, and why</div><div class="why2">${esc(r.why)}</div></div>
+     <div><div class="lbl">③ What Claude built</div><div class="bigpm ${base?"":ok?"ok":"no"}">${esc(r.pm)} ${base?"":ok?"✓":"✗"}</div>
+     <div style="font-size:14px;color:var(--muted)">${base?"its own default":ok?"matches the prediction":"does not match the prediction ("+esc(r.expected)+")"}</div>
+     <div class="lbl" style="margin-top:14px">The proof, quoted from the files Claude wrote</div><div class="proof">${proof||"<div>(no lines found)</div>"}</div>
+     <div class="counts">${Object.entries(r.counts).map(([k,n])=>`<span class="${k===top&&n?"top":""}">${k}: ${n} mention${n===1?"":"s"}</span>`).join("")}</div></div></div>`},
+ results:()=>`<div class="reqbox"><b>Same request · four memories · four brand-new Claudes</b>${esc(M.task)}</div>${lanes(4)}
+   <table class="restab"><tr><th>Run</th><th>Memory said</th><th>Why we expected it</th><th>Claude chose</th><th>Proof from its files</th></tr>${RUNS.map((r,i)=>{const base=r.expected.startsWith("("),ok=r.pm===r.expected;
+   return `<tr><td>${i+1}<br><span style="color:var(--muted);font-size:12px">${esc(r.when)}</span></td><td>${esc(r.says)}</td>
+   <td>${base?"baseline, no prediction":r.origin?"learned from the "+esc(r.origin.where):""}</td>
+   <td><b style="color:${base?"inherit":ok?"var(--ok)":"var(--bad)"}">${esc(r.pm)} ${base?"":ok?"✓":"✗"}</b></td><td><code>${esc(r.proof[0]?.line||"")}</code></td></tr>`}).join("")}</table>`,
  end:v=>`<div class="chapter"><div class="score">${v.passed}/${v.total}</div><div class="big" style="font-size:24px">automated checks passed</div>
    <p>Every memory change in this run is also a git commit. Here's the full log; note the last one, made by a person:</p>
    <div class="log" style="margin-top:12px">${v.commits.slice(1).reverse().map(c=>`<div><b>${c.sha}</b> <span style="color:${c.author==="human edit"?"var(--warn)":"var(--muted)"}">${esc(c.author)}</span> · ${esc(c.subject.replace(/^memory: /,""))}</div>`).join("")}</div></div>`};
