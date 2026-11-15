@@ -1,0 +1,8 @@
+Long-term memory (git-for-memory). These facts were learned from earlier sessions. Prefer them over guesses, but they can be out of date: check before relying on paths or status.
+[general]
+- (preference) Reply style: Keep explanations short; lead with what was done.
+- (preference) CLI framework: For Python CLIs, use argparse from the standard library; avoid click and typer.
+- (preference) Lint and format: Use ruff for both linting and formatting; configure it in pyproject.toml.
+- (preference) Python project layout: Use a src/ layout with pyproject.toml; no setup.py.
+- (preference) Python test framework: Write Python tests with pytest (plain assert, fixtures), never unittest.
+- (preference) Python package manager: Use uv for all Python projects (uv init, uv add, uv run). Never use pip or requirements.txt.
