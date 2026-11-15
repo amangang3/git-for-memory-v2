@@ -18,7 +18,9 @@ from pathlib import Path
 FIELDS = [
     "id", "subject", "type", "scope", "project", "status", "confidence",
     "supersedes", "superseded_by", "valid_from", "invalid_at", "source", "evidence",
+    "asserted_by", "evidence_check",
 ]
+HUMAN_SOURCE = "human#L0"   # facts written or changed by a person, not the extractor
 
 
 @dataclass
@@ -37,6 +39,8 @@ class Fact:
     invalid_at: str | None = None
     source: str = ""                # <session-id>:L<line>
     evidence: str = ""
+    asserted_by: str = ""           # user | assistant | tool | human (combinations joined by +)
+    evidence_check: str = ""        # verbatim | spliced (checked in code against the turn)
 
     def to_file(self) -> str:
         d = asdict(self)
@@ -141,6 +145,8 @@ class Store:
                 valid_from=when,
                 source=source,
                 evidence=op.get("evidence", "")[:300],
+                asserted_by=op.get("asserted_by", ""),
+                evidence_check=op.get("evidence_check", ""),
             )
             if not new.statement:
                 continue
@@ -152,7 +158,7 @@ class Store:
             changes.append(Change(kind, new, old=target if kind == "UPDATE" else None, reason=op.get("reason", "")))
         return changes
 
-    def commit(self, changes: list[Change], source: str, title: str) -> str | None:
+    def commit(self, changes: list[Change], source: str, title: str, author: str | None = None) -> str | None:
         if not changes:
             return None
         counts = {k: sum(c.op == k for c in changes) for k in ("ADD", "UPDATE", "INVALIDATE")}
@@ -168,9 +174,86 @@ class Store:
             if c.reason:
                 lines.append(f"    why: {c.reason}")
         msg = f"memory: {summary} ({title})\n\n" + "\n".join(lines) + f"\n\nSource: {source}"
-        self._git("add", "-A", "facts")
-        self._git("commit", "-q", "-m", msg)
+        # Stage only the files this batch wrote, so nothing else (e.g. a hand edit) rides along.
+        paths = sorted({f"facts/{f.id}.md" for c in changes for f in (c.fact, c.old) if f})
+        self._git("add", "--", *paths)
+        self._git("commit", "-q", "-m", msg, *(["--author", author] if author else []))
         return self._git("rev-parse", "--short", "HEAD").strip()
+
+    # ---------- edits made outside gfm ----------
+    def dirty(self) -> list[tuple[str, str]]:
+        """(git status code, path) for fact files changed since the last memory commit."""
+        out = self._git("status", "--porcelain", "--untracked-files=all", "--", "facts")
+        return [(ln[:2], ln[3:].strip().strip('"')) for ln in out.splitlines() if ln.strip()]
+
+    def absorb_hand_edits(self) -> str | None:
+        """Turn edits made directly to fact files into proper, attributed versions.
+
+        - edited statement/subject/etc. -> old file restored, new version supersedes it (asserted_by=human)
+        - status set to "invalidated"     -> the fact is invalidated by a human
+        - file deleted                    -> restored and invalidated (memory never loses history)
+        - new file                        -> added as a human-written fact
+        - unreadable edit                 -> reverted, and recorded in the commit message
+        One commit, authored "human edit", so `git log` and the viewer show who changed what.
+        """
+        dirty = self.dirty()
+        if not dirty:
+            return None
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        changes: list[Change] = []
+        notes: list[str] = []
+        why = "edited by hand outside gfm; detected and recorded as a human change"
+        for code, path in dirty:
+            p = self.root / path
+            fid = Path(path).stem
+            if code.strip() == "??":
+                try:
+                    f = Fact.from_file(p.read_text())
+                except Exception:
+                    p.unlink()
+                    notes.append(f"removed unreadable new file {path}")
+                    continue
+                f.id, f.source, f.asserted_by, f.valid_from = fid, HUMAN_SOURCE, "human", f.valid_from or now
+                f.evidence = f.evidence or f"written by hand in {path}"
+                self._write(f)
+                changes.append(Change("ADD", f, reason=why))
+                continue
+            old_text = self._git("show", f"HEAD:{path}")
+            old = Fact.from_file(old_text)
+            try:
+                new = Fact.from_file(p.read_text()) if p.exists() else None
+            except Exception:
+                new = None
+                if p.exists():
+                    notes.append(f"reverted unreadable hand edit to {path}")
+                    p.write_text(old_text)
+                    continue
+            p.write_text(old_text)              # put the committed version back first
+            if new is None or new.status == "invalidated":
+                if old.status == "active":
+                    old.status, old.invalid_at = "invalidated", now
+                    self._write(old)
+                    changes.append(Change("INVALIDATE", old, reason=why + (" (file was deleted)" if new is None else "")))
+                continue
+            if old.status != "active":
+                notes.append(f"ignored hand edit to {fid}: only current facts can be edited ({fid} is {old.status})")
+                continue
+            if (new.statement, new.subject, new.type, new.scope, new.project) == (old.statement, old.subject, old.type, old.scope, old.project):
+                continue
+            ver = Fact(id=self._next_id(), subject=new.subject, statement=new.statement, type=new.type, scope=new.scope,
+                       project=new.project, confidence=1.0, supersedes=old.id, valid_from=now, source=HUMAN_SOURCE,
+                       evidence=f"hand edit to facts/{fid}.md", asserted_by="human", evidence_check="")
+            old.status, old.superseded_by, old.invalid_at = "superseded", ver.id, now
+            self._write(old)
+            self._write(ver)
+            changes.append(Change("UPDATE", ver, old=old, reason=why))
+        if not changes:
+            return None
+        sha = self.commit(changes, source=HUMAN_SOURCE, title="session human turn 1", author="human edit <human@localhost>")
+        if notes:
+            self._git("commit", "-q", "--amend", "-m",
+                      self._git("log", "-1", "--format=%B").strip() + "\n\nNotes:\n" + "\n".join(notes))
+        return sha
 
     # ---------- state (how far each session log has been read) ----------
     def state(self) -> dict:

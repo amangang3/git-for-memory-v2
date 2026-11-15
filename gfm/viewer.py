@@ -77,6 +77,8 @@ def build(store: Store, out: Path) -> Path:
     for c in _commits(store):
         sid, _, line = c["source"].partition("#L")
         info = _session_info(sid, cache, known)
+        if sid == "human":
+            info = {"title": "Changes made by a person", "lines": {}, "cwd": ""}
         prompt = info["lines"].get(int(line or 0), "")
         prompt = redact(hide_folder(prompt, info["cwd"])).strip()
         first = facts.get(c["changes"][0]["id"]) if c["changes"] else None
@@ -99,7 +101,8 @@ def build(store: Store, out: Path) -> Path:
             "id": f.id, "subject": f.subject, "statement": f.statement, "type": f.type, "scope": f.scope,
             "project": f.project, "status": f.status, "confidence": f.confidence, "supersedes": f.supersedes,
             "superseded_by": f.superseded_by, "valid_from": f.valid_from, "evidence": f.evidence,
-            "session": sid[:8], "title": info["title"] or f"Session {sid[:8]}",
+            "session": sid[:8], "title": "a person (hand edit)" if sid == "human" else info["title"] or f"Session {sid[:8]}",
+            "asserted_by": f.asserted_by,
         })
 
     data = json.dumps({"facts": fact_rows, "turns": turns, "store": store.root.name}, ensure_ascii=False)
@@ -197,7 +200,7 @@ function facts(){const rows=active.filter(match);if(!rows.length)return `<div cl
  return Object.keys(by).sort().map(p=>`<div class="proj">${esc(p)} <span class="sub">(${by[p].length})</span></div><div class="grid">`+by[p].map(f=>{const vs=chain(f.id);
   return `<div class="card"><div class="top"><span class="subj">${esc(f.subject)}</span><span class="id">${f.id}</span></div>
   <div>${esc(f.statement)}</div>
-  <div class="tags"><span class="tag">${esc(f.type.replace("_"," "))}</span><span class="tag scope-${f.scope}">${esc(f.scope)} scope</span>${vs.length>1?`<span class="tag">version ${vs.length}</span>`:""}</div>
+  <div class="tags"><span class="tag">${esc(f.type.replace("_"," "))}</span><span class="tag scope-${f.scope}">${esc(f.scope)} scope</span>${f.asserted_by?`<span class="tag">said by ${esc(f.asserted_by)}</span>`:""}${vs.length>1?`<span class="tag">version ${vs.length}</span>`:""}</div>
   <div class="conf">Confidence <span class="bar"><i style="width:${Math.round(f.confidence*100)}%"></i></span>${Math.round(f.confidence*100)}%</div>
   ${f.evidence?`<div class="evidence">“${esc(f.evidence)}”</div>`:""}
   <div class="src">From ${esc(f.title)}, ${day(f.valid_from)}</div>

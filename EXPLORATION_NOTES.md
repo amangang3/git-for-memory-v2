@@ -95,3 +95,15 @@ Takeaway: the core decisions (what to add, what to supersede) are stable. Granul
 - An UPDATE whose `target_id` is wrong or inactive **silently becomes an ADD**. An INVALIDATE on a missing id is dropped. Nothing is logged.
 - The hook store path is hard-coded (`<repo>/memory`), so hooks can't be pointed at a scratch store or switched between stores.
 - `history` shows git log for one file only, so it doesn't show the commits of the earlier versions in the chain.
+
+## Build 1 (2026-11-15): v2 improvements + runnable demo
+
+Built at the user's request ("build a demo now with these improvements"). This covers menu items A, B, a light C, D, plus parts of E and F.
+- `gfm/projects.py`: project comes from the folder; the model may only say `general` or name an existing project (fixes P6).
+- `gfm/trust.py`: evidence must be in the turn; speaker recorded (`asserted_by`); a preference not said by the user is rejected; assistant-only facts are capped at 0.7 (P2/P3/P4).
+- `gfm/inject.py` + hook: current project + general, real budget, no paths (P8).
+- `Store.absorb_hand_edits` / `gfm check` / `gfm correct`: hand edits become `human edit` versions; extractor commits stage only their own files (P7).
+- `GFM_STORE`, `GFM_DISABLED`, `gfm inject --cwd`.
+- Tests: 20/20 offline (`tests/test_improvements.py` adds 14).
+- Demo: `python3 demo/run_demo.py` (see `demo/README.md`). First full run: **15/15 checks**. Behaviour: no memory → pip; after uv rule → uv; after the poetry update → poetry; after a hand edit to pdm → pdm. ~$0.29 list price (subscription).
+- New limit surfaced by the demo: a hand edit changes one fact only. The related Fernway overview fact still says poetry. Candidate fix: after any UPDATE, flag active facts that mention the old value.

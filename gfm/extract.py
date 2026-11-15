@@ -121,11 +121,13 @@ def pick_candidates(facts: list[Fact], turn_text: str) -> list[Fact]:
     return picked
 
 
-def build_prompt(turn: Turn, candidates: list[Fact], known_projects: list[str]) -> str:
+def build_prompt(turn: Turn, candidates: list[Fact], known_projects: list[str], project: str = "") -> str:
     mem = "\n".join(f"- {f.id} [{f.project}/{f.type}] {f.subject}: {f.statement}" for f in candidates) or "(empty)"
     return (
         f"KNOWN PROJECTS: {', '.join(known_projects) or '(none yet)'}\n"
         f"SESSION WORKING FOLDER: {Path(turn.cwd).name or '(unknown)'} (shown in the turn as [session folder])\n"
+        f"CURRENT PROJECT (from the working folder): {project or '(unknown)'}. Use it as the project, "
+        "or 'general' for facts about the user across all their work.\n"
         f"TURN TIME: {turn.timestamp}\n\n"
         f"FACTS ALREADY IN MEMORY:\n{mem}\n\n"
         f"=== SESSION TURN {turn.index} ===\n{turn.render()}\n=== END TURN ===\n\n"
@@ -133,9 +135,10 @@ def build_prompt(turn: Turn, candidates: list[Fact], known_projects: list[str]) 
     )
 
 
-def extract(turn: Turn, active: list[Fact], known_projects: list[str], model: str = llm.DEFAULT_MODEL) -> tuple[list[dict], float]:
+def extract(turn: Turn, active: list[Fact], known_projects: list[str], model: str = llm.DEFAULT_MODEL,
+            project: str = "") -> tuple[list[dict], float]:
     text = turn.render()
-    prompt = build_prompt(turn, pick_candidates(active, text), known_projects)
+    prompt = build_prompt(turn, pick_candidates(active, text), known_projects, project)
     data, cost = llm.structured(SYSTEM, prompt, SCHEMA, model=model)
     ops = [o for o in data.get("operations", []) if float(o.get("confidence", 0)) >= 0.6]
     return ops, cost

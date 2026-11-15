@@ -17,10 +17,12 @@ from pathlib import Path
 
 from . import llm
 from .extract import extract
-from .store import Store
+from .store import HUMAN_SOURCE, Store
 from .traces import find_log, hide_folder, read_turns
+from . import projects, trust
 
-DEFAULT_STORE = Path(__file__).resolve().parent.parent / "memory"
+import os
+DEFAULT_STORE = Path(os.environ.get("GFM_STORE") or Path(__file__).resolve().parent.parent / "memory")
 
 
 def cmd_replay(store: Store, args) -> None:
@@ -48,9 +50,13 @@ def cmd_replay(store: Store, args) -> None:
                 store.save_state(state)
                 print(f"   turn {t.index:>3}: skipped (too short to hold a fact)")
                 continue
+            human = store.absorb_hand_edits()
+            if human:
+                print(f"   hand edits to fact files found and recorded as human changes (commit {human})")
             active = store.active()
+            cwd_project = projects.project_for(t.cwd, store.root)
             try:
-                ops, cost = extract(t, active, store.projects(), model=args.model)
+                ops, cost = extract(t, active, store.projects(), model=args.model, project=cwd_project)
             except llm.LLMError as e:
                 # Stop here so this turn is retried next time; skipping ahead would lose it for good.
                 print(f"   turn {t.index}: extractor failed, will retry on the next run: {e}")
@@ -63,10 +69,23 @@ def cmd_replay(store: Store, args) -> None:
                 for k in ("subject", "statement", "evidence", "reason"):
                     if isinstance(op.get(k), str):
                         op[k] = hide_folder(op[k], t.cwd)
-            changes = store.apply(ops, source=source, when=t.timestamp)
+            kept, rejected = [], []
+            for op in ops:
+                op["project"] = projects.resolve(op.get("project", ""), cwd_project, store.projects())
+                if op.get("op", "").upper() == "INVALIDATE":
+                    kept.append(op)
+                    continue
+                ok, why, fields = trust.check(op, t)
+                op.update(fields)
+                (kept if ok else rejected).append(op)
+                if not ok:
+                    op["rejected"] = why
+                    print(f"   turn {t.index:>3}: REJECTED {op.get('type')} {op.get('statement', '')[:70]!r}: {why}")
+            changes = store.apply(kept, source=source, when=t.timestamp)
             sha = store.commit(changes, source=source, title=f"session {sid[:8]} turn {t.index}")
             with (runs / f"{sid}.jsonl").open("a") as fh:
-                fh.write(json.dumps({"turn": t.index, "line": t.start_line, "ops": ops, "cost": cost, "commit": sha}) + "\n")
+                fh.write(json.dumps({"turn": t.index, "line": t.start_line, "project": cwd_project, "ops": kept,
+                                     "rejected": rejected, "cost": cost, "commit": sha}) + "\n")
             state[sid] = t.end_line
             store.save_state(state)
             label = ", ".join(f"{c.op.lower()} {c.fact.id}" for c in changes) or "no change"
@@ -128,6 +147,35 @@ def cmd_history(store: Store, args) -> None:
     print(store._git("log", "--format=%h %ad %s", "--date=short", "--", f"facts/{args.fact_id}.md"))
 
 
+def cmd_inject(store: Store, args) -> None:
+    from .inject import build_context
+    if not (store.root / "facts").exists():
+        return
+    print(build_context(store, cwd=args.cwd or "", project=args.project, budget=args.budget))
+
+
+def cmd_check(store: Store, args) -> None:
+    store.init()
+    sha = store.absorb_hand_edits()
+    print(f"hand edits recorded as human changes in commit {sha}" if sha else "no hand edits: fact files match git")
+    if sha:
+        print(store._git("show", "--stat", "--format=%an%n%B", sha))
+
+
+def cmd_correct(store: Store, args) -> None:
+    """The supported way for a person to change a fact: a new version, attributed to a human."""
+    store.init()
+    old = store.get(args.fact_id)
+    if not old or old.status != "active":
+        sys.exit(f"{args.fact_id} is not a current fact")
+    op = {"op": "UPDATE", "target_id": old.id, "subject": old.subject, "statement": args.statement, "type": old.type,
+          "scope": old.scope, "project": old.project, "confidence": 1.0, "evidence": args.reason or "corrected by hand",
+          "reason": args.reason or "corrected by a person", "asserted_by": "human"}
+    changes = store.apply([op], source=HUMAN_SOURCE, when="")
+    sha = store.commit(changes, source=HUMAN_SOURCE, title="session human turn 1", author="human edit <human@localhost>")
+    print(f"{old.id} -> {changes[0].fact.id} (commit {sha})")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="gfm")
     p.add_argument("--store", default=str(DEFAULT_STORE))
@@ -145,6 +193,15 @@ def main() -> None:
     h = sub.add_parser("history")
     h.add_argument("fact_id")
     sub.add_parser("log")
+    inj = sub.add_parser("inject", help="print the memory a new session in a folder would receive")
+    inj.add_argument("--cwd", default="")
+    inj.add_argument("--project")
+    inj.add_argument("--budget", type=int, default=6000)
+    sub.add_parser("check", help="find hand edits to fact files and record them as human changes")
+    co = sub.add_parser("correct", help="replace a fact's statement, recorded as a human change")
+    co.add_argument("fact_id")
+    co.add_argument("statement")
+    co.add_argument("--reason", default="")
     se = sub.add_parser("sessions")
     se.add_argument("--limit", type=int, default=15)
     hk = sub.add_parser("hook", help="entry points used by Claude Code hooks")
@@ -170,6 +227,12 @@ def main() -> None:
         print(build(store, out))
     elif args.cmd == "sessions":
         cmd_sessions(store, args)
+    elif args.cmd == "inject":
+        cmd_inject(store, args)
+    elif args.cmd == "check":
+        cmd_check(store, args)
+    elif args.cmd == "correct":
+        cmd_correct(store, args)
     elif args.cmd == "log":
         print(store._git("log", "--format=%h %ad %s", "--date=iso"))
 
