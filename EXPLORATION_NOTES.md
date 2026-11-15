@@ -107,3 +107,9 @@ Built at the user's request ("build a demo now with these improvements"). This c
 - Tests: 20/20 offline (`tests/test_improvements.py` adds 14).
 - Demo: `python3 demo/run_demo.py` (see `demo/README.md`). First full run: **15/15 checks**. Behaviour: no memory → pip; after uv rule → uv; after the poetry update → poetry; after a hand edit to pdm → pdm. ~$0.29 list price (subscription).
 - New limit surfaced by the demo: a hand edit changes one fact only. The related Fernway overview fact still says poetry. Candidate fix: after any UPDATE, flag active facts that mention the old value.
+
+## Replay page (2026-11-15)
+
+- `demo/export_replay.py` rebuilds a finished demo workspace (`/tmp/gfm-demo`) into `docs/index.html` without calling any model. Console lines use the same format as `run_demo.py`, and the checks are recomputed with the same code (15/15, matching the live run). It refuses to write the page if a home-folder path appears in it.
+- Published (page only, public): https://amangang3.github.io/gfm-demo-replay/ (repo `amangang3/gfm-demo-replay`). The v2 code stays local.
+- Update after a new run: `python3 demo/run_demo.py && python3 demo/export_replay.py`, copy `docs/index.html` into the page repo, then push.

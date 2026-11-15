@@ -69,3 +69,7 @@ after hand edit  pdm         pdm        yes
 - In Act 1 the *model* already declined the planted preference and the suggestions, so the code-level trust check didn't need to fire. The code guard is covered deterministically by `tests/test_improvements.py` (`TrustTests`).
 - Act 5 passes memory with `--append-system-prompt`. The real SessionStart hook delivers the same text (`gfm inject`) as `additionalContext`.
 - n=1 per condition by default. Use `--repeats 3` or more before quoting numbers in class.
+
+## Replay page
+
+`python3 demo/export_replay.py` turns the last run in `/tmp/gfm-demo` into `docs/index.html`: a page with the setup, a play/step player showing the run's console next to what was happening, the results, and the full session logs. The published copy of the 2026-11-15 run is at https://amangang3.github.io/gfm-demo-replay/.
