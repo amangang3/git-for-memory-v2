@@ -1,0 +1,15 @@
+# Your memory is personal: it stays on your machine, never in this repo.
+memory/
+view-*.html
+PAUSED
+
+__pycache__/
+*.pyc
+.DS_Store
+.claude/
+demo-memory/
+
+# local scratch
+scratch-stores/
+*.pyc
+__pycache__/
