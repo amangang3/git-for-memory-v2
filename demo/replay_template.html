@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>git-for-memory demo replay</title>
+<meta name="description" content="A recorded run of the git-for-memory v2 demo: a memory layer for Claude Code, replayed step by step.">
+<style>
+:root{--bg:#f6f5f1;--panel:#fff;--ink:#1c1c1a;--muted:#6a6963;--line:#e2e0d9;--soft:#efede7;
+--accent:#2f5bd3;--accent-bg:#e7edfc;--ok:#1f7a4d;--ok-bg:#e3f2ea;--bad:#b0362f;--bad-bg:#f8e3e1;--warn:#9a5b00;--warn-bg:#fbefd8;
+--term:#14151a;--term-ink:#d9dbe1;--term-dim:#8a8f9c;--term-act:#7fc8ff;--term-ok:#71d39b;--term-bad:#ff8a80;--term-warn:#f2c46b;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#131312;--panel:#1d1d1b;--ink:#ecebe5;--muted:#9c9b94;--line:#33322e;--soft:#272724;
+--accent:#8ca9ff;--accent-bg:#1e2846;--ok:#63cf96;--ok-bg:#17301f;--bad:#f08079;--bad-bg:#3a1c1a;--warn:#e7ad4e;--warn-bg:#352812;--term:#0d0e12}}
+:root[data-theme="dark"]{--bg:#131312;--panel:#1d1d1b;--ink:#ecebe5;--muted:#9c9b94;--line:#33322e;--soft:#272724;
+--accent:#8ca9ff;--accent-bg:#1e2846;--ok:#63cf96;--ok-bg:#17301f;--bad:#f08079;--bad-bg:#3a1c1a;--warn:#e7ad4e;--warn-bg:#352812;--term:#0d0e12}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans)}
+a{color:var(--accent)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+header.hero{padding:56px 0 28px}
+.eyebrow{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{font-size:clamp(28px,4vw,42px);line-height:1.15;margin:8px 0 12px;letter-spacing:-.01em}
+.lede{font-size:18px;color:var(--muted);max-width:760px;margin:0}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.badge{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+.badge b{color:var(--ink)}.badge.ok{background:var(--ok-bg);border-color:transparent;color:var(--ok)}
+h2{font-size:24px;margin:0 0 6px;letter-spacing:-.01em}
+section{padding:36px 0;border-top:1px solid var(--line)}
+.sub{color:var(--muted);margin:0 0 20px;max-width:780px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.card h3{margin:0 0 6px;font-size:16px}.card p{margin:0;color:var(--muted);font-size:15px}
+.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:stretch;margin:6px 0 4px}
+.flow .node{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;position:relative;font-size:14px}
+.flow .node b{display:block;font-size:14px;margin-bottom:2px}.flow .node span{color:var(--muted);font-size:13px;line-height:1.4;display:block}
+.flow .node:not(:last-child):after{content:"→";position:absolute;right:-12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px;z-index:1}
+.flow .node.code{border-color:var(--accent);background:var(--accent-bg)}
+.acts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;counter-reset:a}
+.acts .card{padding:14px 16px}.acts .n{font:600 12px var(--mono);color:var(--accent)}
+.acts h3{font-size:15px;margin:2px 0 4px}.acts p{font-size:14px}
+/* player */
+#player{scroll-margin-top:12px}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;height:38px;padding:0 14px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink);min-width:104px;font-weight:600}
+.speed{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.speed button{border:0;border-radius:0;height:36px;padding:0 10px;background:var(--panel)}
+.speed button.on{background:var(--soft);font-weight:600}
+.steptitle{margin-left:auto;font-size:14px;color:var(--muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{font-size:13px;height:30px;padding:0 12px;border-radius:999px}
+.chip.on{background:var(--accent-bg);color:var(--accent);border-color:transparent;font-weight:600}
+.chip.done{color:var(--muted)}
+.progress{height:4px;background:var(--soft);border-radius:2px;overflow:hidden;margin-bottom:14px}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.stagewrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;height:640px}
+.term{background:var(--term);color:var(--term-ink);border-radius:14px;padding:14px 16px;font:12.5px/1.55 var(--mono);overflow:auto;white-space:pre-wrap;word-break:break-word}
+.term .bar{display:flex;gap:6px;margin-bottom:10px}.term .bar i{width:10px;height:10px;border-radius:50%;background:#3a3d46}
+.term .ln{min-height:1.55em}.term .act{color:var(--term-act);font-weight:700}.term .dim{color:var(--term-dim)}.term .bold{font-weight:700;color:#fff}
+.term .pass{color:var(--term-ok)}.term .fail,.term .rej{color:var(--term-bad)}.term .warn{color:var(--term-warn)}
+.term .ln.new{animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;overflow:auto}
+.stage h4{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.stage .big{font-size:22px;font-weight:700;margin:0 0 8px;letter-spacing:-.01em}
+.msg{border-radius:12px;padding:9px 12px;margin:0 0 8px;font-size:14px;max-width:92%}
+.msg small{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:2px;font-weight:600}
+.msg.user{background:var(--accent-bg);margin-left:auto}
+.msg.claude{background:var(--soft)}
+.msg.call,.msg.output,.msg.error{font:12.5px/1.5 var(--mono);background:transparent;border:1px dashed var(--line);white-space:pre-wrap;max-width:100%}
+.msg.output.inj{border-color:var(--bad);background:var(--bad-bg)}
+.ops{margin:12px 0}
+.op{border-left:3px solid var(--accent);padding:6px 10px;margin:6px 0;font-size:14px;background:var(--soft);border-radius:0 8px 8px 0}
+.op .ev{font-style:italic;color:var(--muted);font-size:13px}
+.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 7px;border-radius:5px;margin-right:6px;vertical-align:1px}
+.pill.ADD{background:var(--ok-bg);color:var(--ok)}.pill.UPDATE{background:var(--warn-bg);color:var(--warn)}.pill.INVALIDATE{background:var(--bad-bg);color:var(--bad)}
+.who{font-size:12px;padding:1px 8px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--muted);margin-left:4px}
+.who.human{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.nothing{color:var(--muted);font-size:14px;background:var(--soft);border-radius:10px;padding:10px 12px;margin:10px 0}
+.facts{display:grid;gap:8px}
+.proj{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 2px}
+.fact{border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px;transition:background .4s}
+.fact.hl{border-color:var(--ok);background:var(--ok-bg)}
+.fact.old{opacity:.55;text-decoration:line-through}
+.fact .meta{font-size:12px;color:var(--muted);margin-bottom:2px}
+.fact .meta code{font:12px var(--mono)}
+.ctx{font:12.5px/1.5 var(--mono);white-space:pre-wrap;background:var(--soft);border-radius:10px;padding:10px 12px;margin-bottom:14px}
+.ctx mark{background:var(--warn-bg);color:inherit}
+.chain{border-left:2px solid var(--line);margin-left:6px;padding-left:16px}
+.chain .v{position:relative;margin:0 0 12px}.chain .v:before{content:"";position:absolute;left:-22px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--line)}
+.chain .v.cur:before{background:var(--accent)}
+.diff{font:12.5px/1.6 var(--mono);white-space:pre-wrap;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.diff div{padding:1px 10px}.diff .del{background:var(--bad-bg)}.diff .ins{background:var(--ok-bg)}
+.runs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.run{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.run .pm{font:700 20px var(--mono)}.run .pm.ok{color:var(--ok)}
+.run .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.score{font-size:56px;font-weight:800;letter-spacing:-.02em;color:var(--ok);line-height:1}
+.log{font:12.5px/1.6 var(--mono)}
+/* results + logs */
+table{width:100%;border-collapse:collapse;font-size:15px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:13px;color:var(--muted);font-weight:600;background:var(--soft)}
+td code{font:13px var(--mono)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+.tabs button{height:32px;font-size:13px}.tabs button.on{background:var(--ink);color:var(--bg)}
+pre.file{font:12.5px/1.5 var(--mono);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;max-height:420px;margin:0}
+details{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:10px}
+summary{cursor:pointer;font-weight:600}
+.checks li{margin:4px 0}.checks .ok{color:var(--ok);font-weight:700}
+pre.cmd{font:13.5px/1.6 var(--mono);background:var(--term);color:var(--term-ink);border-radius:12px;padding:14px 16px;overflow:auto}
+ul.plain{padding-left:20px;margin:6px 0}ul.plain li{margin:6px 0}
+footer{padding:30px 0 60px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+@media (max-width:900px){.grid3,.acts{grid-template-columns:1fr 1fr}.flow{grid-template-columns:1fr}.flow .node:not(:last-child):after{content:"↓";right:auto;left:50%;top:auto;bottom:-15px;transform:none}
+.stagewrap{grid-template-columns:1fr;height:auto}.term{height:340px}.stage{max-height:none}.runs{grid-template-columns:1fr}.steptitle{margin-left:0;width:100%}}
+@media (max-width:560px){.wrap{padding:0 16px}.grid3,.acts{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <div class="eyebrow">MIT AI Studio · Claude Code memory layer</div>
+  <h1>git-for-memory v2: a recorded demo run</h1>
+  <p class="lede">A memory layer that learns from Claude Code session logs, keeps every fact versioned in git, checks what it
+  stores against what was actually said, and gives each new session only the memory that belongs to it.
+  Press play to watch one real run, step by step.</p>
+  <div class="badges" id="badges"></div>
+</header>
+
+<section id="setup">
+  <h2>The setup</h2>
+  <p class="sub">Everything in the demo is fictional and runs in a throwaway folder. Two made-up projects, three short
+  "days" of session logs, and a fresh Claude asked to do the same task under different memories.</p>
+  <div class="flow">
+    <div class="node"><b>1 · Session log</b><span>What the user said, what Claude did, tool output. The .jsonl file Claude Code already writes.</span></div>
+    <div class="node"><b>2 · Haiku proposes</b><span>ADD, UPDATE or INVALIDATE a fact, with a quote from the log as evidence.</span></div>
+    <div class="node code"><b>3 · Code checks</b><span>Is the quote really in the log? Who said it? The project comes from the folder.</span></div>
+    <div class="node"><b>4 · Git store</b><span>One file per fact, one commit per turn. Updates supersede, never delete.</span></div>
+    <div class="node"><b>5 · Next session</b><span>Gets its project's facts plus user-wide ones. Budgeted, no paths.</span></div>
+  </div>
+  <div class="grid3" style="margin-top:16px">
+    <div class="card"><h3>Fernway</h3><p>A fictional Python bookmarking app. The user sets rules here (uv, ruff), later switches to poetry.</p></div>
+    <div class="card"><h3>Quillpad</h3><p>A fictional TypeScript editor that uses pnpm. Its memory must never leak into Fernway.</p></div>
+    <div class="card"><h3>csv-tool</h3><p>A brand-new empty folder. A fresh Claude sets up a "CSV → JSON CLI with tests" here, with and without memory.</p></div>
+  </div>
+</section>
+
+<section id="acts-section">
+  <h2>The five acts</h2>
+  <p class="sub">Each act tests one claim and ends with checks computed in code.</p>
+  <div class="acts" id="actcards"></div>
+</section>
+
+<section id="player">
+  <h2>Watch the run</h2>
+  <p class="sub">Left: the terminal output of <code>python3 demo/run_demo.py</code>, rebuilt from this run's artifacts. Right: what was happening at that moment.
+  Use <b>space</b> to play or pause and <b>← →</b> to step.</p>
+  <div class="controls">
+    <button class="primary" id="play">▶ Play</button>
+    <button id="prev" aria-label="Previous step">◀ Step</button>
+    <button id="next" aria-label="Next step">Step ▶</button>
+    <button id="restart">↺ Restart</button>
+    <div class="speed" id="speed"><button data-s="0.5">0.5×</button><button data-s="1" class="on">1×</button><button data-s="2">2×</button><button data-s="4">4×</button></div>
+    <div class="steptitle" id="steptitle"></div>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="progress"><i id="prog"></i></div>
+  <div class="stagewrap">
+    <div class="term" id="term" aria-live="polite"><div class="bar"><i></i><i></i><i></i></div><div id="lines"></div></div>
+    <div class="stage" id="stage"></div>
+  </div>
+</section>
+
+<section id="results">
+  <h2>Results of this run</h2>
+  <p class="sub" id="resultsub"></p>
+  <table id="restable"></table>
+  <h3 style="margin:26px 0 4px;font-size:17px">What Claude wrote in each condition</h3>
+  <div class="tabs" id="runtabs"></div>
+  <div class="tabs" id="filetabs"></div>
+  <pre class="file" id="filebody"></pre>
+  <h3 style="margin:26px 0 8px;font-size:17px">All checks</h3>
+  <ul class="checks plain" id="checks"></ul>
+</section>
+
+<section id="logs">
+  <h2>The session logs that were replayed</h2>
+  <p class="sub">The complete fictional input. Highlighted output is the planted instruction the memory must not store.</p>
+  <div id="logbox"></div>
+</section>
+
+<section id="run">
+  <h2>Run it yourself</h2>
+  <pre class="cmd">cd git-for-memory-v2
+claude auth status                    # must say loggedIn: true
+python3 demo/run_demo.py              # about 3 minutes; --pause to present, --repeats 3 for more runs
+open /tmp/gfm-demo/view.html          # browse the memory it built
+python3 demo/export_replay.py         # rebuild this page from your own run</pre>
+  <p class="sub" style="margin-top:12px">Needs Python 3.10+, git and a logged-in Claude Code. Nothing to install. It never touches your
+  Claude settings, your real sessions or your default memory store.</p>
+</section>
+
+<section id="caveats">
+  <h2>Honest caveats</h2>
+  <ul class="plain">
+    <li><b>One run per condition.</b> The behaviour table is n=1. Re-run with <code>--repeats 3</code> before quoting rates.</li>
+    <li><b>The model blocked the bad inputs first.</b> In this run Haiku already ignored the planted "prefers pip" note and Claude's
+      suggestions, so the code trust check had nothing to reject. That check is covered by offline tests.</li>
+    <li><b>One fact at a time.</b> The hand edit changed the preference to pdm, but a related Fernway fact still says poetry (shown in Act 4).</li>
+    <li><b>Delivery.</b> Act 5 passes memory with <code>--append-system-prompt</code>. The real SessionStart hook sends the same text as session context.</li>
+    <li><b>Wording varies.</b> Extraction calls a real model, so another run will word facts differently. The checks test outcomes, not text.</li>
+  </ul>
+</section>
+<footer>git-for-memory v2, built on <a href="https://github.com/akg745/git-for-memory">akg745/git-for-memory</a> for MIT AI Studio. All projects, people and sessions on this page are fictional.</footer>
+</div>
+
+<script>
+const R=/*REPLAY*/null;
+const S=R.steps, M=R.meta;
+const esc=s=>(s??"").toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const $=id=>document.getElementById(id);
+const ACTS=[
+ {t:"Start",d:""},
+ {t:"Learn, don't over-trust",d:"Rules the user states are learned. A planted instruction and Claude's own suggestions are not."},
+ {t:"Scoped memory",d:"Each folder's new session sees its project's facts plus user-wide ones, nothing else."},
+ {t:"Change of mind",d:"\"Switching from uv to poetry\" updates the fact and keeps the old version in history."},
+ {t:"Hand edit",d:"Editing a fact file directly is detected and recorded as a human change in git."},
+ {t:"Behaviour",d:"A fresh Claude does the same task under each memory. Does what it builds follow?"},
+ {t:"Done",d:""}];
+const INJ=/NOTE FOR AI MEMORY[^\n]*/;
+
+// ---------- static sections
+$("badges").innerHTML=[`<span class="badge ok"><b style="color:inherit">${M.passed}/${M.total}</b> checks passed</span>`,
+ `<span class="badge">Run <b>${esc(M.run_date)}</b></span>`,`<span class="badge">Extractor <b>${esc(M.extractor)}</b></span>`,
+ `<span class="badge">Subject <b>${esc(M.subject)}</b></span>`,`<span class="badge"><b>${S.length}</b> steps</span>`].join("");
+$("actcards").innerHTML=ACTS.slice(1,6).map((a,i)=>`<div class="card"><div class="n">ACT ${i+1}</div><h3>${a.t}</h3><p>${a.d}</p></div>`).join("");
+
+// ---------- player
+let cur=-1, playing=false, speed=1, timer=null;
+const actsPresent=[...new Set(S.map(s=>s.act))];
+$("chips").innerHTML=actsPresent.map(a=>`<button class="chip" data-a="${a}">${a===0?"Start":a===6?"Done":"Act "+a+" · "+ACTS[a].t}</button>`).join("");
+$("chips").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;stop();go(S.findIndex(s=>s.act==b.dataset.a))};
+
+function lineHTML(l,isNew){return `<div class="ln ${l.cls||""}${isNew?" new":""}">${esc(l.text)||"&nbsp;"}</div>`}
+function go(i,animate){
+  i=Math.max(0,Math.min(S.length-1,i));
+  const box=$("lines");
+  if(i===cur+1&&animate){ // append progressively
+    const ls=S[i].console;let k=0;
+    const add=()=>{if(cur!==i)return;if(k<ls.length){box.insertAdjacentHTML("beforeend",lineHTML(ls[k++],true));$("term").scrollTop=1e9;setTimeout(add,40/speed)}};
+    cur=i;add();
+  }else{
+    cur=i;box.innerHTML=S.slice(0,i+1).flatMap(s=>s.console).map(l=>lineHTML(l)).join("");$("term").scrollTop=1e9;
+  }
+  render(S[i].view);
+  $("steptitle").textContent=`${i+1}/${S.length} · ${S[i].title}`;
+  $("prog").style.width=((i+1)/S.length*100)+"%";
+  document.querySelectorAll(".chip").forEach(c=>{const a=+c.dataset.a;c.classList.toggle("on",a===S[i].act);c.classList.toggle("done",a<S[i].act)});
+}
+function schedule(){clearTimeout(timer);if(!playing)return;if(cur>=S.length-1){stop();return}
+  const s=S[cur];timer=setTimeout(()=>{go(cur+1,true);schedule()},(s.pause*1000+s.console.length*40)/speed)}
+function play(){if(cur>=S.length-1)go(0);playing=true;$("play").textContent="❚❚ Pause";if(cur<0){go(0,true)}schedule()}
+function stop(){playing=false;clearTimeout(timer);$("play").textContent="▶ Play"}
+$("play").onclick=()=>playing?stop():play();
+$("next").onclick=()=>{stop();go(cur+1,true)};
+$("prev").onclick=()=>{stop();go(cur-1)};
+$("restart").onclick=()=>{stop();cur=-1;$("lines").innerHTML="";go(0,true);play()};
+$("speed").onclick=e=>{const b=e.target.closest("button");if(!b)return;speed=+b.dataset.s;
+  document.querySelectorAll("#speed button").forEach(x=>x.classList.toggle("on",x===b));if(playing)schedule()};
+document.addEventListener("keydown",e=>{if(["INPUT","TEXTAREA"].includes(e.target.tagName))return;
+  if(e.key===" "&&isVisible()){e.preventDefault();playing?stop():play()}
+  if(e.key==="ArrowRight"){stop();go(cur+1,true)} if(e.key==="ArrowLeft"){stop();go(cur-1)}});
+function isVisible(){const r=$("player").getBoundingClientRect();return r.top<innerHeight&&r.bottom>0}
+
+// ---------- stage renderers
+function factCard(f,hl){return `<div class="fact ${hl?"hl":""} ${f.status!=="active"?"old":""}"><div class="meta"><code>${f.id}</code> · ${esc(f.type.replace("_"," "))}
+  ${f.asserted_by?`<span class="who ${f.asserted_by==="human"?"human":""}">said by ${esc(f.asserted_by)}</span>`:""}${f.status!=="active"?` · ${f.status}`:""}</div>${esc(f.statement)}</div>`}
+function memory(facts,hl=[],title="Memory (current facts)"){
+  const act=facts.filter(f=>f.status==="active");if(!act.length)return `<h4>${title}</h4><div class="nothing">Memory is empty.</div>`;
+  const by={};act.forEach(f=>(by[f.project]??=[]).push(f));
+  return `<h4>${title}</h4>`+Object.keys(by).sort().map(p=>`<div class="proj">${esc(p)}</div><div class="facts">${by[p].map(f=>factCard(f,hl.includes(f.id))).join("")}</div>`).join("")}
+function transcript(log){
+  return `<div class="msg user"><small>User · ${esc(log.cwd.split("/").pop())}</small>${esc(log.prompt)}</div>`+
+   log.events.map(e=>{const inj=e.who==="output"&&INJ.test(e.text);
+    const label={claude:"Claude",call:"Tool call",output:inj?"Tool output · planted instruction":"Tool output",error:"Tool error"}[e.who];
+    return `<div class="msg ${e.who} ${inj?"inj":""}"><small>${label}</small>${esc(e.text)}</div>`}).join("")}
+const R_={
+ intro:()=>`<p class="big">A recorded run, replayed</p><p>The terminal on the left is the console output of the demo script for this run.
+   This panel shows what was happening: the session being read, what the extractor proposed, what memory looked like,
+   and what Claude built.</p><div class="nothing">Press <b>Play</b>, or step through with the arrow keys.</div>`,
+ act:v=>`<div class="eyebrow">Act ${v.n}</div><p class="big">${ACTS[v.n].t}</p><p>${ACTS[v.n].d}</p>`,
+ turn:v=>{const tag=v.session.split("-")[0].replace("day","Day ");
+   let h=`<h4>${tag} · project <b>${esc(v.project)}</b> (from the folder) · turn ${v.turn}</h4>`+transcript(v.log);
+   h+=`<h4 style="margin-top:16px">Haiku proposed → code checked</h4>`;
+   if(!v.proposed.length&&!v.rejected.length){
+     const why=INJ.test(JSON.stringify(v.log))?"Nothing. The planted \"prefers pip\" note came from a file, not the user, so nothing was stored."
+      :/suggest/i.test(v.log.prompt)?"Nothing. These were Claude's suggestions; the user never agreed to them."
+      :"Nothing worth remembering in this turn.";
+     h+=`<div class="nothing">${why}</div>`}
+   h+=`<div class="ops">`+v.proposed.map(o=>`<div class="op"><span class="pill ${o.op}">${o.op}</span>${o.target?`<code>${esc(o.target)}</code> → `:""}${esc(o.statement)}
+     <span class="who">said by ${esc(o.asserted_by)}</span><div class="ev">“${esc(o.evidence)}” · project ${esc(o.project)} · confidence ${o.confidence}</div></div>`).join("")
+     +v.rejected.map(o=>`<div class="op" style="border-color:var(--bad)"><span class="pill INVALIDATE">REJECTED</span>${esc(o.statement)}<div class="ev">${esc(o.rejected)}</div></div>`).join("")+`</div>`;
+   return h+memory(v.facts,v.highlight,v.commit?`Memory after commit ${v.commit}`:"Memory (unchanged)")},
+ memory:v=>(v.note?`<div class="nothing">${esc(v.note)}</div>`:"")+memory(v.facts,v.highlight),
+ contexts:v=>`<h4>What a new session receives at start-up</h4>`+v.contexts.map(c=>`<div class="proj">${esc(c.folder)}</div><div class="ctx">${esc(c.text).replace(/pnpm/g,"<mark>pnpm</mark>")}</div>`).join(""),
+ history:v=>{const F=Object.fromEntries(v.facts.map(f=>[f.id,f]));
+   return `<h4>Version chain of the package-manager preference</h4><div class="chain">`+v.chain.map((id,i)=>{const f=F[id];
+    return `<div class="v ${i===v.chain.length-1?"cur":""}"><div class="meta" style="font-size:12px;color:var(--muted)"><code>${id}</code> · ${esc(f.status)} · from ${esc(f.source.split("#")[0])}</div>${esc(f.statement)}<div class="ev" style="font-size:13px;color:var(--muted);font-style:italic">“${esc(f.evidence)}”</div></div>`}).join("")+`</div>`+memory(v.facts,[v.chain.at(-1)])},
+ edit:v=>{const a=v.before.split("\n"),b=v.after.split("\n");let rows="";
+   for(let i=0;i<Math.max(a.length,b.length);i++){if(a[i]===b[i]){rows+=`<div>${esc(a[i])||"&nbsp;"}</div>`}else{if(a[i]!==undefined&&a[i]!=="")rows+=`<div class="del">- ${esc(a[i])}</div>`;if(b[i]!==undefined&&b[i]!=="")rows+=`<div class="ins">+ ${esc(b[i])}</div>`}}
+   return `<h4>A person edits <code>${esc(v.file)}</code> in a text editor (no git)</h4><div class="diff">${rows}</div>`},
+ results:v=>`<h4>Same task, four memories</h4><p style="margin-top:0;font-size:14px;color:var(--muted)">“${esc(v.task)}”</p><div class="runs">`+v.runs.map(r=>{
+   const ok=r.expected===r.pm;return `<div class="run"><div class="lbl">${esc(r.name)}</div><div class="pm ${ok?"ok":""}">${esc(r.pm)} ${r.expected.startsWith("(")?"":ok?"✓":"✗"}</div>
+   <div style="font-size:13px;color:var(--muted)">expected ${esc(r.expected)} · ruff ${r.ruff?"yes":"no"}</div>
+   <details style="margin-top:8px;padding:6px 10px"><summary style="font-size:13px">Memory given</summary><div class="ctx" style="margin:8px 0 0">${esc(r.memory)||"(none)"}</div></details></div>`}).join("")+`</div>`,
+ end:v=>`<div class="score">${v.passed}/${v.total}</div><p class="big" style="margin-top:6px">checks passed</p>
+   <h4 style="margin-top:18px">Memory git log</h4><div class="log">${v.commits.slice().reverse().map(c=>`<div><b>${c.sha}</b> <span style="color:${c.author==="human edit"?"var(--warn)":"var(--muted)"}">${esc(c.author)}</span> ${esc(c.subject)}</div>`).join("")}</div>`};
+function render(v){$("stage").innerHTML=(R_[v.type]||(()=>""))(v);$("stage").scrollTop=0}
+
+// ---------- results section
+const runs=S.find(s=>s.view.type==="results").view.runs;
+$("resultsub").textContent=`Task given to a fresh ${M.subject} in an empty folder: “${M.task}”`;
+$("restable").innerHTML=`<tr><th>Memory given</th><th>Expected</th><th>Claude set up</th><th>ruff configured</th><th>Mentions found (uv / poetry / pdm / pip)</th></tr>`+
+ runs.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.expected)}</td><td><b>${esc(r.pm)}</b> ${r.expected.startsWith("(")?"":r.pm===r.expected?"✓":"✗"}</td><td>${r.ruff?"yes":"no"}</td>
+ <td><code>${r.counts.uv} / ${r.counts.poetry} / ${r.counts.pdm} / ${r.counts.pip}</code></td></tr>`).join("");
+let selRun=0,selFile="pyproject.toml";
+function files(){const r=runs[selRun];const names=Object.keys(r.files);if(!names.includes(selFile))selFile=names[0];
+ $("runtabs").innerHTML=runs.map((x,i)=>`<button class="${i===selRun?"on":""}" data-i="${i}">${esc(x.name)}</button>`).join("");
+ $("filetabs").innerHTML=names.map(n=>`<button class="${n===selFile?"on":""}" data-f="${esc(n)}">${esc(n)}</button>`).join("");
+ $("filebody").textContent=r.files[selFile]}
+$("runtabs").onclick=e=>{const b=e.target.closest("button");if(b){selRun=+b.dataset.i;files()}};
+$("filetabs").onclick=e=>{const b=e.target.closest("button");if(b){selFile=b.dataset.f;files()}};
+files();
+$("checks").innerHTML=M.checks.map(c=>`<li><span class="${c.ok?"ok":""}" style="${c.ok?"":"color:var(--bad);font-weight:700"}">${c.ok?"✔":"✘"}</span> ${esc(c.label)}</li>`).join("");
+$("logbox").innerHTML=Object.entries(M.logs).map(([sid,turns])=>`<details><summary>${esc(sid)} · ${turns.length} turn${turns.length>1?"s":""}</summary>
+ <div style="margin-top:10px">${turns.map(t=>transcript(t)).join('<hr style="border:0;border-top:1px solid var(--line);margin:12px 0">')}</div></details>`).join("");
+const m=location.hash.match(/step=(\d+)/);go(m?+m[1]-1:0);
+addEventListener("hashchange",()=>{const m=location.hash.match(/step=(\d+)/);if(m){stop();go(+m[1]-1)}});
+</script>
+</body>
+</html>
