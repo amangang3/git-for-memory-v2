@@ -1,6 +1,7 @@
 """Check every proposed fact against the turn it came from, in code, before it is stored.
 
-1. Evidence must really be in the turn: verbatim, or verbatim pieces joined by "..." / "…" / ";".
+1. Evidence must really be in the turn: verbatim, or verbatim pieces joined by "...", "…", ";" or " / ".
+   Formatting is ignored (Markdown ** and ` marks, curly quotes, dash variants).
 2. We record who said the evidence: the user (prompt or a rejection message), the assistant,
    or tool output (files, web pages, command output).
 3. Policy:
@@ -21,13 +22,17 @@ ASSISTANT_CAP = 0.7
 _TAGS = [
     ("[CLAUDE]", "assistant"), ("[TOOL CALL", "assistant"),
     ("[TOOL OUTPUT", "tool"), ("[TOOL ERROR", "tool"), ("[BACKGROUND TASK", "tool"),
-    ("[USER REJECTED", "user"), ("[USER INTERRUPTED", "user"),
+    ("[USER REJECTED", "user"), ("[USER INTERRUPTED", "user"), ("[USER ANSWERED", "user"),
 ]
-_TAG_RE = re.compile(r"\[(?:CLAUDE|TOOL (?:CALL|OUTPUT|ERROR)[^\]]*|USER (?:REJECTED|INTERRUPTED)[^\]]*|BACKGROUND TASK DONE)\]\s*")
+_TAG_RE = re.compile(r"\[(?:CLAUDE|TOOL (?:CALL|OUTPUT|ERROR)[^\]]*|USER (?:REJECTED|INTERRUPTED|ANSWERED)[^\]]*|BACKGROUND TASK DONE)\]\s*")
+
+
+_PLAIN = str.maketrans({"“": '"', "”": '"', "‘": "'", "’": "'", "—": "-", "–": "-", "*": None, "`": None, "_": None, "#": None})
 
 
 def _norm(s: str) -> str:
-    return re.sub(r"\s+", " ", s).strip().lower()
+    """Compare text, not formatting: models quote Markdown without its ** and ` marks, and with plain quotes/dashes."""
+    return re.sub(r"\s+", " ", s.translate(_PLAIN)).strip().lower()
 
 
 def segments(turn: Turn) -> list[tuple[str, str]]:
@@ -41,7 +46,7 @@ def segments(turn: Turn) -> list[tuple[str, str]]:
 
 def pieces(evidence: str) -> list[str]:
     ev = _TAG_RE.sub("", evidence)
-    return [p.strip(" .\"'“”") for p in re.split(r"\.\.\.|…|;", _norm(ev)) if len(p.strip(" .\"'“”")) >= 3]
+    return [p.strip(" .\"'“”") for p in re.split(r"\.\.\.|…|;| / ", _norm(ev)) if len(p.strip(" .\"'“”")) >= 3]
 
 
 def check(op: dict, turn: Turn) -> tuple[bool, str, dict]:

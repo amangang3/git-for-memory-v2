@@ -68,6 +68,21 @@ class TrustTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(f["confidence"], trust.ASSISTANT_CAP)
 
+    def test_markdown_in_the_log_is_ignored(self):   # found on real sessions: models drop ** and ` when quoting
+        t = turn("ok", "[CLAUDE] - **Edited total, `trust` policy:** the seller believed the 3999 — and resent it.")
+        ok, _, f = trust.check({"type": "project_fact", "evidence": "Edited total, trust policy: the seller believed the 3999 - and resent it."}, t)
+        self.assertTrue(ok)
+
+    def test_answers_to_claudes_questions_count_as_the_user(self):
+        t = turn("pick one", "[USER ANSWERED] Edit policy: Hold until approved")
+        ok, _, f = trust.check({"type": "preference", "evidence": "Edit policy: Hold until approved"}, t)
+        self.assertTrue(ok)
+        self.assertEqual(f["asserted_by"], "user")
+
+    def test_lines_joined_with_slash(self):
+        t = turn("x", "[TOOL OUTPUT Bash] ANTHROPIC_API_KEY: not set\nollama: not running")
+        self.assertTrue(trust.check({"type": "environment", "evidence": "ANTHROPIC_API_KEY: not set / ollama: not running"}, t)[0])
+
     def test_spliced_quote_accepted(self):
         ok, _, f = trust.check({"type": "preference", "evidence": "For all my Python projects ... never pip"}, self.T)
         self.assertTrue(ok)

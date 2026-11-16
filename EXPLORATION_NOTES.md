@@ -120,3 +120,13 @@ User question: "shouldn't the human edit show up as a red flag?" Yes. The first 
 - `absorb_hand_edits` restores the committed version and stores the edit as a `pending` fact (author `outside edit (unverified)`). New commands: `pending`, `approve`, `reject`.
 - Demo Act 4 = edit → flagged and held → approved. Act 5 now has 5 runs. New run: **19/19**: none → pip, Day 1 → uv, Day 5 → poetry, **unapproved edit → poetry (edit had no effect)**, after approval → pdm. ~$0.33 list price.
 - Tests: 22/22. Open item: pending edits aren't surfaced to the user at session start yet.
+
+## First run on real sessions (2026-11-16)
+
+The user asked to run v2 on their own Claude Code logs: 5 sessions, 71 turns, store at `~/gfm-memory` (outside Drive and outside this repo). No session content is recorded here.
+- **Finding: the trust check was too strict on real logs.** 44 proposals were rejected. 29 of them were the check's mistakes, not invented evidence. Three causes, none visible in the synthetic logs:
+  1. Real replies are Markdown. Models quote them without `**` and backticks, and with plain quotes and dashes. The fix: comparison ignores that formatting.
+  2. Models join quoted lines with " / ". The fix: " / " now joins quote pieces, like "…" and ";".
+  3. The user's answers to Claude's multiple-choice questions arrive as tool results. The fix: they are read as `[USER ANSWERED]` and credited to the user.
+- The other 15 rejections were genuine paraphrases, and rejecting them is correct. Tests: 26/26 (4 new, modelled on these cases).
+- Lesson: synthetic probes under-tested the trust check. Real logs are the only way to calibrate it.

@@ -52,7 +52,7 @@ class Turn:
         if len(text) <= MAX_TURN:
             return text
         # Too long: keep the prompt, every error/rejection/correction, and the last replies.
-        keep = [e for e in self.events if e.startswith(("[TOOL ERROR", "[USER REJECTED", "[USER INTERRUPTED"))]
+        keep = [e for e in self.events if e.startswith(("[TOOL ERROR", "[USER REJECTED", "[USER INTERRUPTED", "[USER ANSWERED"))]
         tail, size = [], 0
         for e in reversed(self.events):
             if e in keep:
@@ -201,7 +201,10 @@ def read_turns(path: str | Path, start_line: int = 0) -> list[Turn]:
                         name = tool_names.get(b.get("tool_use_id", ""), "?")
                         out = _text_of(b.get("content"))
                         low = out.lower()
-                        if b.get("is_error") and any(m in low for m in REJECTION_MARKERS):
+                        if name == "AskUserQuestion" and not b.get("is_error"):
+                            # The user's own answer to a question Claude asked: their words, not tool output.
+                            current.events.append("[USER ANSWERED] " + redact(_cut(out, MAX_ERROR)))
+                        elif b.get("is_error") and any(m in low for m in REJECTION_MARKERS):
                             current.events.append(f"[USER REJECTED {name}] " + redact(_cut(out, MAX_ERROR)))
                         elif b.get("is_error"):
                             current.events.append(f"[TOOL ERROR {name}] " + redact(_cut(out, MAX_ERROR)))
