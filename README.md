@@ -89,8 +89,8 @@ If later calls fail with "OAuth access token is invalid", run `claude auth login
 ## Quick start (about 5 minutes)
 
 ```bash
-git clone https://github.com/akg745/git-for-memory.git
-cd git-for-memory
+git clone https://github.com/amangang3/git-for-memory-v2.git
+cd git-for-memory-v2
 ```
 
 **1. Run the offline tests.** No Claude calls, no cost.
