@@ -1,4 +1,25 @@
-# git-for-memory
+# git-for-memory v2
+
+A memory layer for Claude Code that learns from your session logs, keeps every fact versioned in git, and only remembers what you actually said.
+
+This is an improved version of [akg745/git-for-memory](https://github.com/akg745/git-for-memory), built for MIT AI Studio.
+
+**▶ Watch the demo run:** https://amangang3.github.io/gfm-demo-replay/
+
+## What v2 adds to the original
+
+- **No false memories.** Code checks that every fact's evidence quote really appears in the session and records who said it: the user, Claude, or a tool or file. A preference the user didn't state is rejected, so Claude's suggestions and instructions hidden in files don't become "your" rules (`gfm/trust.py`).
+- **The right memory for each session.** The project comes from the session's folder, not a model's guess (`gfm/projects.py`). A new session gets only its project's facts plus user-wide ones, within a real size budget and with no file paths (`gfm/inject.py`).
+- **Nothing changes memory behind your back.** Edits made directly to fact files are flagged and held as *pending* until you run `gfm approve`, and every step is a git commit. Extractor commits include only their own files.
+
+Also new: `gfm inject | check | pending | approve | reject | correct`, the `GFM_STORE` and `GFM_DISABLED` switches, an end-to-end demo (`python3 demo/run_demo.py`, see [demo/README.md](demo/README.md)), and 22 offline tests.
+The early experiments that motivated these changes are written up in [EXPLORATION_NOTES.md](EXPLORATION_NOTES.md).
+
+---
+
+*The original README follows. Its quick start and commands still apply.*
+
+## Original README: git-for-memory
 
 A memory layer for Claude Code that learns from what actually happens in your sessions, keeps facts current when they change, and records every change in git.
 

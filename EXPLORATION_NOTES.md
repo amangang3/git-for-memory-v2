@@ -111,7 +111,7 @@ Built at the user's request ("build a demo now with these improvements"). This c
 ## Replay page (2026-11-15)
 
 - `demo/export_replay.py` rebuilds a finished demo workspace (`/tmp/gfm-demo`) into `docs/index.html` without calling any model. Console lines use the same format as `run_demo.py`, and the checks are recomputed with the same code (15/15, matching the live run). It refuses to write the page if a home-folder path appears in it.
-- Published (page only, public): https://amangang3.github.io/gfm-demo-replay/ (repo `amangang3/gfm-demo-replay`). The v2 code stays local.
+- Published (page only, public): https://amangang3.github.io/gfm-demo-replay/ (repo `amangang3/gfm-demo-replay`). The v2 code was later published as `amangang3/git-for-memory-v2` (2026-11-16).
 - Update after a new run: `python3 demo/run_demo.py && python3 demo/export_replay.py`, copy `docs/index.html` into the page repo, then push.
 
 ## Outside edits are flagged, not trusted (2026-11-15)
